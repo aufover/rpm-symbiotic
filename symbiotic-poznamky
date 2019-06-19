@@ -1,0 +1,6 @@
+Build script obsahuje init_submodule, zavolať na začiatku, a odstrániť toto volanie z build scriptu
+sbt-instrumentation scripty bootstrap-dg.sh a bootstrap-json.sh obsahujú git clone, zavolať na začiatku a odstrániť tieto volania
+
+build script obsahuje git prikaz na získanie verzie - git rev-parse HEAD (verziu vypísať do súboru predom a nahradiť príkazom cat)
+
+-Klee vyžaduje 32b knižnice (package glibc-devel.i686)
