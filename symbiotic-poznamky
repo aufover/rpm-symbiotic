@@ -3,4 +3,21 @@ sbt-instrumentation scripty bootstrap-dg.sh a bootstrap-json.sh obsahujú git cl
 
 build script obsahuje git prikaz na získanie verzie - git rev-parse HEAD (verziu vypísať do súboru predom a nahradiť príkazom cat)
 
--Klee vyžaduje 32b knižnice (package glibc-devel.i686)
+scripty sú umiestnené v adresárovej štruktúre v ktorej majú byť použité
+Postup:
+1. inicializovať symbiotic pomocou git clone
+2. zkopírovať a použiť script init_submodules.sh
+3. zkopírovať a použiť script bootstrap-init.sh
+4. zkopírovať a použiť script git_rev-parse.sh
+5. zkopírovať zvišné scripty
+6. použiť script do_SRPM.sh (potrebuje nástroj rpmbuild)
+
+-Klee vyžaduje 32b knižnice (package glibc-devel.i686) (BuildRequires: glibc-devel(x86-32))
+
+-- /usr/bin/symbiotic link nefunguje,rozbije sa lokalizácia súborov, ktoré treba importovať (ImportError)
+-- Priame spustenie symbioticu cez /opt/symbiotic/install/bin/symbiotic hlási chybu ERROR: Cannot find library 'libRA.so'
+
+Status:
+build       -   ok
+install     -   ok
+funkčnosť   -   fail

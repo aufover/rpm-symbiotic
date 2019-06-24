@@ -7,7 +7,6 @@ cd ..
 rm -rf ./symbiotic-$version
 mkdir ./symbiotic-$version
 cp -r ./symbiotic/* ./symbiotic-$version/
-#git archive --prefix="symbiotic-$version/" --format="tar" HEAD -- . | xz -c > symbiotic-$version.tar.xz
 tar -Jcf symbiotic-$version.tar.xz ./symbiotic-$version
 
 echo "Name:       symbiotic
@@ -17,6 +16,8 @@ Summary:    TODO
 License:    Free
 URL:        https://github.com/staticafi/%{name}
 Source0:    %{name}-%{version}.tar.xz
+
+%global _build_id_links none
 
 BuildRequires: gcc
 BuildRequires: cmake
@@ -44,13 +45,13 @@ TODO
 sh ./system-build.sh
 
 %install
-mkdir -p \$RPM_BUILD_ROOT/usr/share/symbiotic
+mkdir -p \$RPM_BUILD_ROOT/opt/symbiotic
 mkdir -p \$RPM_BUILD_ROOT/usr/bin
-find install/ -type f -exec install -Dm 755 {} \$RPM_BUILD_ROOT/usr/share/symbiotic/{} \;
-ln -sf  /usr/share/symbiotic/install/bin/symbiotic \$RPM_BUILD_ROOT/usr/bin/symbiotic
+find install/ -type f -exec install -Dm 755 {} \$RPM_BUILD_ROOT/opt/symbiotic/{} \;
+ln -sf  /opt/symbiotic/install/bin/symbiotic \$RPM_BUILD_ROOT/usr/bin/symbiotic
 
 %files
-/usr/share/symbiotic/
+/opt/symbiotic/
 /usr/bin/symbiotic
 
 %check
