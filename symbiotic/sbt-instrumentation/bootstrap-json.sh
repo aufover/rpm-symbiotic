@@ -12,7 +12,7 @@ if [ ! -d jsoncpp ]; then
 	true
 fi
 
-cd jsoncpp
+cd ../jsoncpp
 if [ ! -d CMakeFiles ]; then
 	cmake .
 fi
@@ -21,8 +21,7 @@ make
 python amalgamate.py
 
 # copy the jsoncpp.cpp file into parent's src/ folder
-cp dist/jsoncpp.cpp ../src/
+cp -R dist/* ../sbt-instrumentation/src
 rsync -r dist/json ../include/
 
 echo "json files successfully copied"
-

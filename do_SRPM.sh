@@ -1,18 +1,58 @@
-#!/bin/bash
+#!/usr/bin/bash
 
-cd ./symbiotic
-version=$(git describe --tags)
-version=${version//-/$'.'}
+rm -rf srpm
+mkdir srpm
+cd srpm
+
+# git clone symbiotic, dg, jsoncpp
+git clone https://github.com/staticafi/symbiotic.git
+
+cd symbiotic
+
+if [ ! -d dg ]; then
+	git clone https://github.com/mchalupa/dg.git
+fi
+
+if [ ! -d jsoncpp ]; then
+	git clone https://github.com/open-source-parsers/jsoncpp
+	# FIXME: until a bug in building is fixed in the upstream
+	cd jsoncpp
+	git checkout c51d718ead5b
+	cd -
+fi
+
+# git init submodules
+source "$(dirname $0)/scripts/build-utils.sh"
+SRCDIR=`dirname $0`
+git_submodule_init
+
+# git versions
+cp ../../symbiotic/git_rev-parse.sh .
+./git_rev-parse.sh
+
+# copy scripts
+cp ../../symbiotic/system-build.sh .
+cp ../../symbiotic/sbt-instrumentation/bootstrap-dg.sh ./sbt-instrumentation
+cp ../../symbiotic/sbt-instrumentation/bootstrap-json.sh ./sbt-instrumentation
+
+#package version
+PKG="symbiotic"
+NV="`git describe --tags`"
+VER="`echo "$NV" | sed "s/^$PKG-//"`"
+TIMESTAMP="`git log --pretty="%cd" --date=iso -1 \
+    | tr -d ':-' | tr ' ' . | cut -d. -f 1,2`"
+VER="`echo "$VER" | sed "s/-.*-/.$TIMESTAMP./"`"
+
 cd ..
-rm -rf ./symbiotic-$version
-mkdir ./symbiotic-$version
-cp -r ./symbiotic/* ./symbiotic-$version/
-tar -Jcf symbiotic-$version.tar.xz ./symbiotic-$version
+rm -rf ./symbiotic-$VER
+mkdir ./symbiotic-$VER
+cp -r ./symbiotic/* ./symbiotic-$VER/
+tar -Jcf symbiotic-$VER.tar.xz ./symbiotic-$VER
 
-echo "Name:       symbiotic
-Version:    $version
+echo "Name:       $PKG
+Version:    $VER
 Release:    1%{?dist}
-Summary:    TODO
+Summary:    Tool for analysis of sequential computer programs written in C
 License:    Free
 URL:        https://github.com/staticafi/%{name}
 Source0:    %{name}-%{version}.tar.xz
@@ -35,30 +75,46 @@ BuildRequires: z3-devel
 BuildRequires: zlib
 BuildRequires: zlib-static
 
+BuildRequires: curl
+BuildRequires: wget
+BuildRequires: make
+BuildRequires: unzip
+BuildRequires: tar
+BuildRequires: patch
+BuildRequires: xz
+BuildRequires: python
+
 %description
-TODO
+Symbiotic is a tool for analysis of sequential computer programs written in the programming language C. It can check all common safety properties like assertion violations, invalid pointer dereference, double free, memory leaks, etc.
 
 %prep
-%setup
+%autosetup
 
 %build
+sed -i 's+PREFIX=\`pwd\`/install+PREFIX=%{_builddir}/opt/symbiotic+g' system-build.sh
+sed -i '2s+^PREFIX+#PREFIX+' ./scripts/precompile_bitcode_files.sh
+
 sh ./system-build.sh
 
+sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/bin/symbiotic
+sed -i 's/__file__/os.readlink(__file__)/' %{_builddir}/opt/symbiotic/bin/symbiotic
+sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/llvm-8.0.0/bin/klee-stats
+
 %install
-mkdir -p \$RPM_BUILD_ROOT/opt/symbiotic
-mkdir -p \$RPM_BUILD_ROOT/usr/bin
-find install/ -type f -exec install -Dm 755 {} \$RPM_BUILD_ROOT/opt/symbiotic/{} \;
-ln -sf  /opt/symbiotic/install/bin/symbiotic \$RPM_BUILD_ROOT/usr/bin/symbiotic
+mkdir -p %{buildroot}/%{_bindir}
+mkdir -p %{buildroot}/opt/%{name}
+cp -pr %{_builddir}/opt/symbiotic/* %{buildroot}/opt/%{name}
+ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}/%{_bindir}/symbiotic
 
 %files
-/opt/symbiotic/
-/usr/bin/symbiotic
+/opt/%{name}/
+%{_bindir}/%{name}
 
 %check
 true
 " >symbiotic.spec
 
-rm -rf ./symbiotic-$version
-mv ./symbiotic-$version.tar.xz ~/rpmbuild/SOURCES/
+rm -rf ./symbiotic-$VER
+mv ./symbiotic-$VER.tar.xz ~/rpmbuild/SOURCES/
 
 rpmbuild -bs symbiotic.spec
