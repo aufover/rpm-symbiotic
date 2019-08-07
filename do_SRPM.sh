@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+##!/usr/bin/bash
 
 rm -rf srpm
 mkdir srpm
@@ -101,6 +101,7 @@ sed -i 's/__file__/os.readlink(__file__)/' %{_builddir}/opt/symbiotic/bin/symbio
 sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/llvm-8.0.0/bin/klee-stats
 
 %install
+export QA_RPATHS=$(( 0x0001|0x0010 ))
 mkdir -p %{buildroot}/%{_bindir}
 mkdir -p %{buildroot}/opt/%{name}
 cp -pr %{_builddir}/opt/symbiotic/* %{buildroot}/opt/%{name}
@@ -118,3 +119,6 @@ rm -rf ./symbiotic-$VER
 mv ./symbiotic-$VER.tar.xz ~/rpmbuild/SOURCES/
 
 rpmbuild -bs symbiotic.spec
+
+cd ..
+rm -rf srpm
