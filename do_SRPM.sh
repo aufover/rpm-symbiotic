@@ -94,7 +94,7 @@ Symbiotic is a tool for analysis of sequential computer programs written in the 
 sed -i 's+PREFIX=\`pwd\`/install+PREFIX=%{_builddir}/opt/symbiotic+g' system-build.sh
 sed -i '2s+^PREFIX+#PREFIX+' ./scripts/precompile_bitcode_files.sh
 
-sh ./system-build.sh
+./system-build.sh %{?_smp_mflags}
 
 sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/bin/symbiotic
 sed -i 's/__file__/os.readlink(__file__)/' %{_builddir}/opt/symbiotic/bin/symbiotic
