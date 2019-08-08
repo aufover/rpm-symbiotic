@@ -75,8 +75,6 @@ BuildRequires: z3-devel
 BuildRequires: zlib
 BuildRequires: zlib-static
 
-BuildRequires: curl
-BuildRequires: wget
 BuildRequires: make
 BuildRequires: unzip
 BuildRequires: tar
