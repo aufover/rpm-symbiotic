@@ -113,10 +113,4 @@ ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}/%{_bindir}/symbiotic
 true
 " >symbiotic.spec
 
-rm -rf ./symbiotic-$VER
-mv ./symbiotic-$VER.tar.xz ~/rpmbuild/SOURCES/
-
-rpmbuild -bs symbiotic.spec
-
-cd ..
-rm -rf srpm
+rpmbuild -bs symbiotic.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"
