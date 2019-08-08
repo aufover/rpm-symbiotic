@@ -2,12 +2,12 @@
 
 rm -rf srpm
 mkdir srpm
-cd srpm
+cd srpm || exit $?
 
 # git clone symbiotic, dg, jsoncpp
 git clone https://github.com/staticafi/symbiotic.git
 
-cd symbiotic
+cd symbiotic || exit $?
 
 if [ ! -d dg ]; then
 	git clone https://github.com/mchalupa/dg.git
@@ -16,9 +16,7 @@ fi
 if [ ! -d jsoncpp ]; then
 	git clone https://github.com/open-source-parsers/jsoncpp
 	# FIXME: until a bug in building is fixed in the upstream
-	cd jsoncpp
-	git checkout c51d718ead5b
-	cd -
+	(cd jsoncpp && git checkout c51d718ead5b)
 fi
 
 # git init submodules
@@ -43,7 +41,7 @@ TIMESTAMP="`git log --pretty="%cd" --date=iso -1 \
     | tr -d ':-' | tr ' ' . | cut -d. -f 1,2`"
 VER="`echo "$VER" | sed "s/-.*-/.$TIMESTAMP./"`"
 
-cd ..
+cd .. || exit $?
 rm -rf ./symbiotic-$VER
 mkdir ./symbiotic-$VER
 cp -r ./symbiotic/* ./symbiotic-$VER/
