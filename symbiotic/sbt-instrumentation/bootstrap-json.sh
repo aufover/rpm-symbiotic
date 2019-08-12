@@ -18,7 +18,7 @@ if [ ! -d CMakeFiles ]; then
 fi
 
 make
-python amalgamate.py
+python3 amalgamate.py
 
 # copy the jsoncpp.cpp file into parent's src/ folder
 cp -R dist/* ../sbt-instrumentation/src

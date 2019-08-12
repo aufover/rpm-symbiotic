@@ -30,8 +30,8 @@ cp ../../symbiotic/git_rev-parse.sh .
 
 # copy scripts
 cp ../../symbiotic/system-build.sh .
-cp ../../symbiotic/sbt-instrumentation/bootstrap-dg.sh ./sbt-instrumentation
-cp ../../symbiotic/sbt-instrumentation/bootstrap-json.sh ./sbt-instrumentation
+cp ../../symbiotic/sbt-instrumentation/bootstrap-dg.sh ./sbt-instrumentation/
+cp ../../symbiotic/sbt-instrumentation/bootstrap-json.sh ./sbt-instrumentation/
 
 #package version
 PKG="symbiotic"
@@ -78,7 +78,7 @@ BuildRequires: unzip
 BuildRequires: tar
 BuildRequires: patch
 BuildRequires: xz
-BuildRequires: python
+BuildRequires: python3
 
 %description
 Symbiotic is a tool for analysis of sequential computer programs written in the programming language C. It can check all common safety properties like assertion violations, invalid pointer dereference, double free, memory leaks, etc.
