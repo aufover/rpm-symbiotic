@@ -67,6 +67,7 @@ BuildRequires: clang
 BuildRequires: glibc
 BuildRequires: glibc-devel
 BuildRequires: glibc-devel(x86-32)
+BuildRequires: ncurses-devel
 BuildRequires: z3
 BuildRequires: z3-libs
 BuildRequires: z3-devel
@@ -94,7 +95,7 @@ sed -i '2s+^PREFIX+#PREFIX+' ./scripts/precompile_bitcode_files.sh
 
 sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/bin/symbiotic
 sed -i 's/__file__/os.readlink(__file__)/' %{_builddir}/opt/symbiotic/bin/symbiotic
-sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/llvm-8.0.0/bin/klee-stats
+sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/llvm-*/bin/klee-stats
 
 %install
 export QA_RPATHS=$(( 0x0001|0x0010 ))
