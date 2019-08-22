@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# upstream revision to checkout
+SYMBIOTIC_REV="ifm2019-13-g1c7dfe5"
+
 rm -rf srpm
 mkdir srpm
 cd srpm || exit $?
@@ -9,6 +12,10 @@ git clone --recurse-submodules https://github.com/staticafi/symbiotic.git
 
 cd symbiotic || exit $?
 
+# checkout the specified upstream revision
+git checkout --recurse-submodules "$SYMBIOTIC_REV"
+
+# FIXME: this should be replaced by upstream git submodule (if ever needed)
 if [ ! -d jsoncpp ]; then
 	git clone https://github.com/open-source-parsers/jsoncpp
 	# FIXME: until a bug in building is fixed in the upstream
