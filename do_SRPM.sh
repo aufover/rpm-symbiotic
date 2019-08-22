@@ -4,25 +4,16 @@ rm -rf srpm
 mkdir srpm
 cd srpm || exit $?
 
-# git clone symbiotic, dg, jsoncpp
-git clone https://github.com/staticafi/symbiotic.git
+# clone symbiotic git repo, including its submodules
+git clone --recurse-submodules https://github.com/staticafi/symbiotic.git
 
 cd symbiotic || exit $?
-
-if [ ! -d dg ]; then
-	git clone https://github.com/mchalupa/dg.git
-fi
 
 if [ ! -d jsoncpp ]; then
 	git clone https://github.com/open-source-parsers/jsoncpp
 	# FIXME: until a bug in building is fixed in the upstream
-	(cd jsoncpp && git checkout c51d718ead5b)
+	(cd jsoncpp && git reset --hard c51d718ead5b)
 fi
-
-# git init submodules
-source "$(dirname $0)/scripts/build-utils.sh"
-SRCDIR=`dirname $0`
-git_submodule_init
 
 # git versions
 cp ../../symbiotic/git_rev-parse.sh .
