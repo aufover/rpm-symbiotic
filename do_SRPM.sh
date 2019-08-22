@@ -10,7 +10,7 @@ cd srpm || exit $?
 # clone symbiotic git repo, including its submodules
 git clone --recurse-submodules https://github.com/staticafi/symbiotic.git
 
-cd symbiotic || exit $?
+(cd symbiotic || exit $?
 
 # checkout the specified upstream revision
 git checkout --recurse-submodules "$SYMBIOTIC_REV"
@@ -31,6 +31,8 @@ cp ../../symbiotic/system-build.sh .
 cp ../../symbiotic/sbt-instrumentation/bootstrap-dg.sh ./sbt-instrumentation/
 cp ../../symbiotic/sbt-instrumentation/bootstrap-json.sh ./sbt-instrumentation/
 
+) # leave the `symbiotic` directory
+
 #package version
 PKG="symbiotic"
 NV="`git describe --tags`"
@@ -39,7 +41,6 @@ TIMESTAMP="`git log --pretty="%cd" --date=iso -1 \
     | tr -d ':-' | tr ' ' . | cut -d. -f 1,2`"
 VER="`echo "$VER" | sed "s/-.*-/.$TIMESTAMP./"`"
 
-cd .. || exit $?
 rm -rf ./symbiotic-$VER
 mkdir ./symbiotic-$VER
 cp -r ./symbiotic/* ./symbiotic-$VER/
