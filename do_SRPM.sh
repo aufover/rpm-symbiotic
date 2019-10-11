@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # upstream revision to checkout
-SYMBIOTIC_REV="ifm2019-13-g1c7dfe5"
+SYMBIOTIC_REV="ifm2019-46-gd57bfda"
 
 rm -rf srpm
 mkdir srpm
