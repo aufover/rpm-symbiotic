@@ -53,6 +53,7 @@ Summary:    Tool for analysis of sequential computer programs written in C
 License:    Free
 URL:        https://github.com/staticafi/%{name}
 Source0:    %{name}-%{version}.tar.xz
+Source1:    symbiotic2cs.py
 
 %global _build_id_links none
 
@@ -100,15 +101,19 @@ sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/llvm-*/bin/klee-s
 export QA_RPATHS=$(( 0x0001|0x0010 ))
 mkdir -p %{buildroot}/%{_bindir}
 mkdir -p %{buildroot}/opt/%{name}
+install -m 755 %{SOURCE1} %{buildroot}%{_bindir}/symbiotic2cs.py
 cp -pr %{_builddir}/opt/symbiotic/* %{buildroot}/opt/%{name}
 ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}/%{_bindir}/symbiotic
 
 %files
 /opt/%{name}/
 %{_bindir}/%{name}
+%{_bindir}/symbiotic2cs.py
 
 %check
 true
 " >symbiotic.spec
+
+cp ../symbiotic2cs.py ./
 
 rpmbuild -bs symbiotic.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"
