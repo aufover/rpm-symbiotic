@@ -86,12 +86,12 @@ Symbiotic is a tool for analysis of sequential computer programs written in the 
 
 %prep
 %autosetup
+sed -i system-build.sh                     -e 's|^export PREFIX=|#&|'
+sed -i scripts/precompile_bitcode_files.sh -e 's|^PREFIX=|#&|'
 
 %build
-sed -i 's+PREFIX=\`pwd\`/install+PREFIX=%{_builddir}/opt/symbiotic+g' system-build.sh
-sed -i '2s+^PREFIX+#PREFIX+' ./scripts/precompile_bitcode_files.sh
-
-./system-build.sh %{?_smp_mflags}
+export PREFIX=%{_builddir}/opt/symbiotic
+bash -x ./system-build.sh %{?_smp_mflags}
 
 sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/bin/symbiotic
 sed -i 's/__file__/os.readlink(__file__)/' %{_builddir}/opt/symbiotic/bin/symbiotic
@@ -108,7 +108,7 @@ ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}/%{_bindir}/symbiotic
 %files
 /opt/%{name}/
 %{_bindir}/%{name}
-/usr/bin/symbiotic2cs
+%{_bindir}/symbiotic2cs
 
 %check
 true
