@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # upstream revision to checkout
-SYMBIOTIC_REV="ifm2019-46-gd57bfda"
+SYMBIOTIC_REV="ifm2019-244-g8738e5b"
 
 rm -rf srpm
 mkdir srpm
@@ -68,6 +68,7 @@ BuildRequires: glibc
 BuildRequires: glibc-devel
 BuildRequires: glibc-devel(x86-32)
 BuildRequires: ncurses-devel
+BuildRequires: sqlite-devel
 BuildRequires: z3
 BuildRequires: z3-libs
 BuildRequires: z3-devel
