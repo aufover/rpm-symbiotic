@@ -43,7 +43,7 @@ def parse_input(str):
         elif (state == "error"):
             if (e_end_re.search(l) != None):
                 state = "start"
-                print ("Error: Symbiotic_error:")
+                print ("Error: SYMBIOTIC_ERROR:")
                 print (file + ":" +line +": error: " + description)
                 print(stack, end='')
                 #print(info)
