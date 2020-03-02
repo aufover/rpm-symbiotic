@@ -23,6 +23,7 @@ def parse_input(str):
     e_info_start_re = re.compile('Info:\s*')
     e_info_line_re = re.compile('\s+(.*)\s*')
 
+    e_unknown_re = re.compile('RESULT: unknown \((.*)\)')
     for l in str.splitlines():
         #stack state is not part of the elif chain
         if (state == "stack"):
@@ -40,6 +41,10 @@ def parse_input(str):
         if (state == "start"):
             if (e_start_re.search(l) != None):
                 state = "error"
+            elif (e_unknown_re.search(l) != None):
+                e = e_unknown_re.search(l).group(1)
+                print ("Error: SYMBIOTIC_WARNING:")
+                print ("<unknonwn>: internal warning: " +e)
         elif (state == "error"):
             if (e_end_re.search(l) != None):
                 state = "start"
