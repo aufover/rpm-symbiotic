@@ -1,0 +1,27 @@
+--- a/scripts/symbiotic
++++ b/scripts/symbiotic
+@@ -23,7 +23,7 @@ import os
+ from time import time
+
+ # set path to our package
+-pth = os.path.join(os.path.dirname(__file__), '../lib/symbioticpy')
++pth = os.path.join(os.path.dirname(os.readlink(__file__)), '../lib/symbioticpy')
+ sys.path.append(os.path.abspath(pth))
+
+ from symbiotic.utils import err, dbg
+
+
+--- a/lib/symbioticpy/symbiotic/utils/process.py
++++ b/lib/symbioticpy/symbiotic/utils/process.py
+@@ -43,9 +43,8 @@ class ProcessRunner(object):
+             msg = ' '.join(cmd) + '\n'
+             raise SymbioticException(msg + str(e))
+ 
+-        while True:
+-            line = ProcessRunner.current_process.stdout.readline()
+-            if line == b'' and ProcessRunner.current_process.poll() is not None:
++        for line in ProcessRunner.current_process.stdout:
++            if line == b'':
+                 break
+ 
+             watch.putLine(line)

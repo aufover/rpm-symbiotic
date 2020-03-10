@@ -1,52 +1,72 @@
 #!/bin/bash
 
+set -e
+
 # upstream revision to checkout
 SYMBIOTIC_REV="comp19-458-g44b9125"
 
 rm -rf srpm
 mkdir srpm
-cd srpm || exit $?
+cd srpm
 
 # clone symbiotic git repo, including its submodules
 git clone --recurse-submodules https://github.com/staticafi/symbiotic.git
 
-(cd symbiotic || exit $?
+pushd symbiotic > /dev/null
 
 # checkout the specified upstream revision
 git checkout --recurse-submodules "$SYMBIOTIC_REV"
 
 # FIXME: this should be replaced by upstream git submodule (if ever needed)
+pushd sbt-instrumentation > /dev/null
 if [ ! -d jsoncpp ]; then
-	git clone https://github.com/open-source-parsers/jsoncpp
-	# FIXME: until a bug in building is fixed in the upstream
-	(cd jsoncpp && git reset --hard c51d718ead5b)
+  git clone https://github.com/open-source-parsers/jsoncpp
+  # FIXME: until a bug in building is fixed in the upstream
+  cd jsoncpp
+  git checkout c51d718ead5b
 fi
+popd > /dev/null
 
-# git versions
-cp ../../symbiotic/git_rev-parse.sh .
-./git_rev-parse.sh
+# Generate version files and variables in advance
+SYMBIOTIC_VERSION=$(git rev-parse HEAD)
 
-# copy scripts
-cp ../../symbiotic/system-build.sh .
-cp ../../symbiotic/sbt-instrumentation/bootstrap-dg.sh ./sbt-instrumentation/
-cp ../../symbiotic/sbt-instrumentation/bootstrap-json.sh ./sbt-instrumentation/
+pushd dg > /dev/null
+  DG_VERSION=$(git rev-parse HEAD)
+  cd tools
+  ./git-version.sh
+popd > /dev/null
 
-) # leave the `symbiotic` directory
+pushd sbt-slicer > /dev/null
+  SBT_SLICER_VERSION=$(git rev-parse HEAD)
+  cd src
+  ./git-version.sh
+popd > /dev/null
 
-#package version
-PKG="symbiotic"
-NV="`git describe --tags`"
-VER="`echo "$NV" | sed "s/^$PKG-//"`"
-TIMESTAMP="`git log --pretty="%cd" --date=iso -1 \
-    | tr -d ':-' | tr ' ' . | cut -d. -f 1,2`"
-VER="`echo "$VER" | sed "s/-.*-/.$TIMESTAMP./"`"
+pushd sbt-instrumentation > /dev/null
+  INSTRUMENTATION_VERSION=$(git rev-parse HEAD)
+  cd include
+  . ../git-version.sh
+popd > /dev/null
 
-rm -rf ./symbiotic-$VER
-mkdir ./symbiotic-$VER
-cp -r ./symbiotic/* ./symbiotic-$VER/
-tar -Jcf symbiotic-$VER.tar.xz ./symbiotic-$VER
+pushd klee > /dev/null
+  KLEE_VERSION=$(git rev-parse HEAD)
+popd > /dev/null
 
-echo "Name:       $PKG
+popd > /dev/null # leave the `symbiotic` directory
+
+# package version
+PKG=symbiotic
+NV=$(git describe --tags)
+TIMESTAMP=$(git log --pretty="%cd" --date=iso -1 | tr -d ':-' \
+            | tr ' ' . | cut -d . -f 1,2)
+VER=$(echo "$NV" | sed "s/-.*-/.$TIMESTAMP./")
+
+echo "Making symbiotic-$VER.tar.xz"
+mv symbiotic "symbiotic-$VER"
+tar -Jcf "symbiotic-$VER.tar.xz" "symbiotic-$VER"
+
+cat > symbiotic.spec << EOF
+Name:       $PKG
 Version:    $VER
 Release:    1%{?dist}
 Summary:    Tool for analysis of sequential computer programs written in C
@@ -54,8 +74,8 @@ License:    Free
 URL:        https://github.com/staticafi/%{name}
 Source0:    %{name}-%{version}.tar.xz
 Source1:    symbiotic2cs.py
-
-%global _build_id_links none
+Patch0:     build.patch
+Patch1:     hotfix.patch
 
 BuildRequires: gcc
 BuildRequires: cmake
@@ -68,6 +88,7 @@ BuildRequires: glibc
 BuildRequires: glibc-devel
 BuildRequires: glibc-devel(x86-32)
 BuildRequires: ncurses-devel
+BuildRequires: python3
 BuildRequires: sqlite-devel
 BuildRequires: z3
 BuildRequires: z3-libs
@@ -75,46 +96,37 @@ BuildRequires: z3-devel
 BuildRequires: zlib
 BuildRequires: zlib-static
 
-BuildRequires: make
-BuildRequires: unzip
-BuildRequires: tar
-BuildRequires: patch
-BuildRequires: xz
-BuildRequires: python3
-
 %description
 Symbiotic is a tool for analysis of sequential computer programs written in the programming language C. It can check all common safety properties like assertion violations, invalid pointer dereference, double free, memory leaks, etc.
 
 %prep
-%autosetup
-sed -i system-build.sh                     -e 's|^export PREFIX=|#&|'
-sed -i scripts/precompile_bitcode_files.sh -e 's|^PREFIX=|#&|'
+%autosetup -p1
 
 %build
-export PREFIX=%{_builddir}/opt/symbiotic
-bash -x ./system-build.sh %{?_smp_mflags}
+export SYMBIOTIC_VERSION=$SYMBIOTIC_VERSION
+export DG_VERSION=$DG_VERSION
+export SBT_SLICER_VERSION=$SBT_SLICER_VERSION
+export INSTRUMENTATION_VERSION=$INSTRUMENTATION_VERSION
+export KLEE_VERSION=$KLEE_VERSION
 
-sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/bin/symbiotic
-sed -i 's/__file__/os.readlink(__file__)/' %{_builddir}/opt/symbiotic/bin/symbiotic
-sed -i \"1s/env python\$/python3/\" %{_builddir}/opt/symbiotic/llvm-*/bin/klee-stats
+./system-build.sh %{?_smp_mflags}
 
 %install
 export QA_RPATHS=$(( 0x0001|0x0010 ))
-mkdir -p %{buildroot}/%{_bindir}
+
 mkdir -p %{buildroot}/opt/%{name}
+cp -pr install/* %{buildroot}/opt/%{name}
+
+mkdir -p %{buildroot}%{_bindir}
 install -m 755 %{SOURCE1} %{buildroot}%{_bindir}/symbiotic2cs
-cp -pr %{_builddir}/opt/symbiotic/* %{buildroot}/opt/%{name}
-ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}/%{_bindir}/symbiotic
+ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}%{_bindir}/symbiotic
 
 %files
 /opt/%{name}/
 %{_bindir}/%{name}
 %{_bindir}/symbiotic2cs
+EOF
 
-%check
-true
-" >symbiotic.spec
-
-cp ../symbiotic2cs.py ./
+cp ../{symbiotic2cs.py,build.patch,hotfix.patch} .
 
 rpmbuild -bs symbiotic.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"
