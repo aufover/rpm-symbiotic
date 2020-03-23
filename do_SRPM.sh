@@ -96,6 +96,8 @@ BuildRequires: z3-devel
 BuildRequires: zlib
 BuildRequires: zlib-static
 
+Requires: llvm
+
 %description
 Symbiotic is a tool for analysis of sequential computer programs written in the programming language C. It can check all common safety properties like assertion violations, invalid pointer dereference, double free, memory leaks, etc.
 
