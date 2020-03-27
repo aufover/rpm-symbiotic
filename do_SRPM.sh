@@ -17,16 +17,6 @@ pushd symbiotic > /dev/null
 # checkout the specified upstream revision
 git checkout --recurse-submodules "$SYMBIOTIC_REV"
 
-# FIXME: this should be replaced by upstream git submodule (if ever needed)
-pushd sbt-instrumentation > /dev/null
-if [ ! -d jsoncpp ]; then
-  git clone https://github.com/open-source-parsers/jsoncpp
-  # FIXME: until a bug in building is fixed in the upstream
-  cd jsoncpp
-  git checkout c51d718ead5b
-fi
-popd > /dev/null
-
 # Generate version files and variables in advance
 SYMBIOTIC_VERSION=$(git rev-parse HEAD)
 
@@ -80,6 +70,7 @@ Patch1:     hotfix.patch
 BuildRequires: gcc
 BuildRequires: cmake
 BuildRequires: rsync
+BuildRequires: jsoncpp-devel
 BuildRequires: llvm
 BuildRequires: llvm-devel
 BuildRequires: llvm-static

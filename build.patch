@@ -184,3 +184,18 @@
  			|| clean_and_exit 1 "git"
  	fi
  
+diff --git a/system-build.sh b/system-build.sh
+--- a/system-build.sh
++++ b/system-build.sh
+@@ -369,11 +369,6 @@ if [ $FROM -le 6 ]; then
+ 
+ 	pushd "$SRCDIR/sbt-instrumentation" || exitmsg "Cloning failed"
+ 
+-	# bootstrap JSON library if needed
+-	if [ ! -f jsoncpp/dist/jsoncpp.cpp ]; then
+-		./bootstrap-json.sh || exitmsg "Failed generating json files"
+-	fi
+-
+ 	mkdir -p build-${LLVM_VERSION}
+ 	pushd build-${LLVM_VERSION}
+ 	if [ ! -d CMakeFiles ]; then
