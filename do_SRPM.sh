@@ -87,6 +87,7 @@ BuildRequires: z3-devel
 BuildRequires: zlib
 BuildRequires: zlib-static
 
+Requires: clang
 Requires: llvm
 
 %description
