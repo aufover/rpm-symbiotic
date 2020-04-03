@@ -3,7 +3,7 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-460-g8805766"
+SYMBIOTIC_REV="svcomp19-471-g03f217b"
 
 rm -rf srpm
 mkdir srpm
@@ -75,7 +75,6 @@ BuildRequires: llvm
 BuildRequires: llvm-devel
 BuildRequires: llvm-static
 BuildRequires: clang
-BuildRequires: glibc
 BuildRequires: glibc-devel
 BuildRequires: glibc-devel(x86-32)
 BuildRequires: ncurses-devel
@@ -84,7 +83,6 @@ BuildRequires: sqlite-devel
 BuildRequires: z3
 BuildRequires: z3-libs
 BuildRequires: z3-devel
-BuildRequires: zlib
 BuildRequires: zlib-static
 
 Requires: clang
