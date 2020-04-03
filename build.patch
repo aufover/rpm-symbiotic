@@ -187,6 +187,19 @@
 diff --git a/system-build.sh b/system-build.sh
 --- a/system-build.sh
 +++ b/system-build.sh
+@@ -257,7 +257,11 @@ for T in $LLVM_TOOLS; do
+ done
+ 
+ mkdir -p $LLVM_PREFIX/lib
+-ln -sf $(dirname $(which clang))/../lib/clang/ $LLVM_PREFIX/lib/
++CLANG_LIBS=$($LLVM_CONFIG --libdir)/clang/
++if [ ! -d $CLANG_LIBS ]; then
++    exitmsg "Invalid path to clang libraries."
++fi
++ln -sf $CLANG_LIBS $LLVM_PREFIX/lib/
+ 
+ ######################################################################
+ #   dg
 @@ -369,11 +369,6 @@ if [ $FROM -le 6 ]; then
  
  	pushd "$SRCDIR/sbt-instrumentation" || exitmsg "Cloning failed"
