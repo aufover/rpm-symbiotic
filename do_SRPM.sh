@@ -69,7 +69,6 @@ Patch1:     hotfix.patch
 
 BuildRequires: gcc
 BuildRequires: cmake
-BuildRequires: rsync
 BuildRequires: jsoncpp-devel
 BuildRequires: llvm
 BuildRequires: llvm-devel

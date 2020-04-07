@@ -212,3 +212,20 @@ diff --git a/system-build.sh b/system-build.sh
  	mkdir -p build-${LLVM_VERSION}
  	pushd build-${LLVM_VERSION}
  	if [ ! -d CMakeFiles ]; then
+diff --git a/system-build.sh b/system-build.sh
+index 43c0365..94bbf41 100755
+--- a/system-build.sh
++++ b/system-build.sh
+@@ -184,12 +184,6 @@ check()
+ 		MISSING="make $MISSING"
+ 	fi
+ 
+-	if ! rsync --version &>/dev/null; then
+-		# TODO: fix the bootstrap script to use also cp
+-		echo "sbt-instrumentation needs rsync when bootstrapping json. "
+-		MISSING="rsync $MISSING"
+-	fi
+-
+ 	if ! tar --version &>/dev/null; then
+ 		echo "Need tar utility"
+ 		MISSING="tar $MISSING"
