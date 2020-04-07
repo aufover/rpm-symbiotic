@@ -49,7 +49,6 @@ diff --git a/dg/CMakeLists.txt b/dg/CMakeLists.txt
  if (USE_CLANG_SANITIZERS)
  	message(WARNING "USE_CLANG_SANITIZERS has been renamed to USE_SANITIZERS")
 
-Entering 'sbt-slicer'
 diff --git a/sbt-slicer/CMakeLists.txt b/sbt-slicer/CMakeLists.txt
 index 70c6335..7479c12 100644
 --- a/sbt-slicer/CMakeLists.txt
@@ -65,23 +64,6 @@ index 70c6335..7479c12 100644
  # Compiler Options
 -set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++11 -Wall -Wextra")
 +set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++14 -Wall -Wextra")
- 
- find_package(LLVM REQUIRED CONFIG)
- 
-diff --git a/transforms/CMakeLists.txt b/transforms/CMakeLists.txt
---- a/transforms/CMakeLists.txt
-+++ b/transforms/CMakeLists.txt
-@@ -1,11 +1,11 @@
- cmake_minimum_required(VERSION 3.3)
- project(sbt-transforms)
- 
--set(CMAKE_CXX_STANDARD 11)
-+set(CMAKE_CXX_STANDARD 14)
- set(CMAKE_CXX_STANDARD_REQUIRED on)
- # explicitly add -std=c++11, some cmake versions
- # fail adding it even with CMAKE_CXX_STANDARD
--set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -fno-rtti")
-+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -fno-rtti")
  
  find_package(LLVM REQUIRED CONFIG)
  
@@ -149,76 +131,3 @@ index ef4f585..1b5622e 100644
  
  class PredatorPlugin : public InstrPlugin
 
-diff --git a/transforms/CheckModule.cpp b/transforms/CheckModule.cpp
---- a/transforms/CheckModule.cpp
-+++ b/transforms/CheckModule.cpp
-@@ -12,6 +12,7 @@
- #include "llvm/IR/Instructions.h"
- #include "llvm/IR/Module.h"
- #include "llvm/Pass.h"
-+#include "llvm/Support/CommandLine.h"
- using namespace llvm;
- 
- static cl::opt<std::string> detect_calls("detect-calls",
-
-diff --git a/transforms/ClassifyInstructions.cpp b/transforms/ClassifyInstructions.cpp
---- a/transforms/ClassifyInstructions.cpp
-+++ b/transforms/ClassifyInstructions.cpp
-@@ -19,7 +19,7 @@
- using namespace llvm;
- 
- namespace {
--  class ClassifyInstr : public BasicBlockPass {
-+  class ClassifyInstr : public FunctionPass {
-       bool stack_array{false};
-       bool stack_var_array{false};
-       bool has_malloc{false}, has_calloc{false},
-@@ -73,16 +73,18 @@ namespace {
-     public:
-       static char ID;
- 
--      ClassifyInstr() : BasicBlockPass(ID) {}
-+      ClassifyInstr() : FunctionPass(ID) {}
- 
--      bool runOnBasicBlock(BasicBlock &B) override {
--        for (auto& I : B) {
--            classifyInstruction(I);
-+      bool runOnFunction(Function &F) override {
-+        for (auto& B : F) {
-+            for (auto& I : B) {
-+                classifyInstruction(I);
-+            }
-         }
-         return false;
-       }
- 
--      bool doFinalization(Module&) {
-+      bool doFinalization(Module&) override {
-         if (stack_array)
-             llvm::errs() << "array on stack\n";
-         if (stack_var_array)
-
-diff --git a/transforms/InstrumentNontermination.cpp b/transforms/InstrumentNontermination.cpp
---- a/transforms/InstrumentNontermination.cpp
-+++ b/transforms/InstrumentNontermination.cpp
-@@ -14,7 +14,7 @@
- #include "llvm/IR/Module.h"
- #include "llvm/Pass.h"
- #include "llvm/IR/Type.h"
--#include "llvm/Support/raw_ostream.h"
-+#include "llvm/Support/CommandLine.h"
- #include "llvm/Transforms/Utils/BasicBlockUtils.h"
- #include "llvm/IR/DebugInfoMetadata.h"
- 
-diff --git a/transforms/ReplaceUBSan.cpp b/transforms/ReplaceUBSan.cpp
-index fb26e80..1f2713e 100644
---- a/transforms/ReplaceUBSan.cpp
-+++ b/transforms/ReplaceUBSan.cpp
-@@ -21,7 +21,7 @@
- #else
-   #include "llvm/Support/InstIterator.h"
- #endif
--#include "llvm/Support/raw_ostream.h"
-+#include "llvm/Support/CommandLine.h"
- #include "llvm/Transforms/Utils/BasicBlockUtils.h"
- #include <llvm/IR/DebugInfoMetadata.h>
