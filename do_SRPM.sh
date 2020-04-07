@@ -70,7 +70,6 @@ Patch1:     hotfix.patch
 BuildRequires: gcc
 BuildRequires: cmake
 BuildRequires: jsoncpp-devel
-BuildRequires: llvm
 BuildRequires: llvm-devel
 BuildRequires: llvm-static
 BuildRequires: clang
@@ -79,8 +78,6 @@ BuildRequires: glibc-devel(x86-32)
 BuildRequires: ncurses-devel
 BuildRequires: python3
 BuildRequires: sqlite-devel
-BuildRequires: z3
-BuildRequires: z3-libs
 BuildRequires: z3-devel
 BuildRequires: zlib-static
 
