@@ -3,7 +3,7 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-471-g03f217b"
+SYMBIOTIC_REV="svcomp19-476-g3ef4d7d"
 
 rm -rf srpm
 mkdir srpm
