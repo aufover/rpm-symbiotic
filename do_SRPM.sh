@@ -3,7 +3,7 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-476-g3ef4d7d"
+SYMBIOTIC_REV="svcomp19-479-g9111d89"
 
 rm -rf srpm
 mkdir srpm
@@ -17,7 +17,7 @@ pushd symbiotic > /dev/null
 # checkout the specified upstream revision
 git checkout --recurse-submodules "$SYMBIOTIC_REV"
 
-# Generate version files and variables in advance
+# generate version files and variables in advance
 SYMBIOTIC_VERSION=$(git rev-parse HEAD)
 
 pushd dg > /dev/null

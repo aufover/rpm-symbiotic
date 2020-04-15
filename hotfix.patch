@@ -10,124 +10,31 @@
 
  from symbiotic.utils import err, dbg
 
-
---- a/lib/symbioticpy/symbiotic/utils/process.py
-+++ b/lib/symbioticpy/symbiotic/utils/process.py
-@@ -43,9 +43,8 @@ class ProcessRunner(object):
-             msg = ' '.join(cmd) + '\n'
-             raise SymbioticException(msg + str(e))
+# Find coorrect LLVM cmaka dir on rpm-based distros
+diff --git a/system-build.sh b/system-build.sh
+index aee9cc2..27ad938 100755
+--- a/system-build.sh
++++ b/system-build.sh
+@@ -234,12 +234,7 @@ export LLVM_PREFIX="$PREFIX/llvm-$LLVM_VERSION"
+ LLVM_MAJOR_VERSION="${LLVM_VERSION%%\.*}"
+ LLVM_MINOR_VERSION=${LLVM_VERSION#*\.}
+ LLVM_MINOR_VERSION="${LLVM_MINOR_VERSION%\.*}"
+-LLVM_CMAKE_CONFIG_DIR=share/llvm/cmake
+-if [ $LLVM_MAJOR_VERSION -gt 3 ]; then
+-	LLVM_CMAKE_CONFIG_DIR=lib/cmake/llvm
+-elif [ $LLVM_MAJOR_VERSION -ge 3 -a $LLVM_MINOR_VERSION -ge 9 ]; then
+-	LLVM_CMAKE_CONFIG_DIR=lib/cmake/llvm
+-fi
++LLVM_CMAKE_CONFIG_DIR="$($LLVM_CONFIG --cmakedir)"
  
--        while True:
--            line = ProcessRunner.current_process.stdout.readline()
--            if line == b'' and ProcessRunner.current_process.poll() is not None:
-+        for line in ProcessRunner.current_process.stdout:
-+            if line == b'':
-                 break
+ mkdir -p $LLVM_PREFIX/bin
+ for T in $LLVM_TOOLS; do
+@@ -351,7 +346,7 @@ if [ $FROM -le 6 -a "$BUILD_PREDATOR" = "yes" ]; then
+ 	pushd predator-${LLVM_VERSION}
  
-             watch.putLine(line)
-
-# Use c++14 for LLVM 10
-diff --git a/dg/CMakeLists.txt b/dg/CMakeLists.txt
---- a/dg/CMakeLists.txt
-+++ b/dg/CMakeLists.txt
-@@ -4,7 +4,7 @@
- include(CTest)
+ 	if [ ! -d CMakeFiles ]; then
+-	        CXX=clang++ ./switch-host-llvm.sh /usr/${LLVM_CMAKE_CONFIG_DIR}
++	        CXX=clang++ ./switch-host-llvm.sh "${LLVM_CMAKE_CONFIG_DIR}"
+ 	fi
  
- # we need C++11 standard
--set(CMAKE_CXX_STANDARD 11)
-+set(CMAKE_CXX_STANDARD 14)
- set(CMAKE_CXX_STANDARD_REQUIRED on)
- 
- OPTION(LLVM_DG "Support for LLVM Dependency graph" ON)
-@@ -132,7 +132,7 @@
- # put the -std=c++11 or -std=gnu++11 to the flags
- # on some systems. For the -fno-rtti: LLVM still got problems
- # with turning RTTI off...
--set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++11 -Wall -Wextra")
-+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++14 -Wall -Wextra")
- 
- if (USE_CLANG_SANITIZERS)
- 	message(WARNING "USE_CLANG_SANITIZERS has been renamed to USE_SANITIZERS")
-
-diff --git a/sbt-slicer/CMakeLists.txt b/sbt-slicer/CMakeLists.txt
-index 70c6335..7479c12 100644
---- a/sbt-slicer/CMakeLists.txt
-+++ b/sbt-slicer/CMakeLists.txt
-@@ -2,11 +2,11 @@
- project(sbt-slicer)
- 
- # we need C++11 standard
--set(CMAKE_CXX_STANDARD 11)
-+set(CMAKE_CXX_STANDARD 14)
- set(CMAKE_CXX_STANDARD_REQUIRED on)
- 
- # Compiler Options
--set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++11 -Wall -Wextra")
-+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++14 -Wall -Wextra")
- 
- find_package(LLVM REQUIRED CONFIG)
- 
-diff --git a/dg/include/dg/AnalysisOptions.h b/include/dg/AnalysisOptions.h
-index 55958a06..0b8f7dc4 100644
---- a/dg/include/dg/AnalysisOptions.h
-+++ b/include/dg/AnalysisOptions.h
-@@ -3,6 +3,7 @@
- 
- #include "Offset.h"
- #include <map>
-+#include <string>
- 
- namespace dg {
- 
-diff --git a/dg/include/dg/PointerAnalysis/PointsToSets/SeparateOffsetsPointsToSet.h b/include/dg/PointerAnalysis/PointsToSets/SeparateOffsetsPointsToSet.h
-index a6bcba52..01d3caba 100644
---- a/dg/include/dg/PointerAnalysis/PointsToSets/SeparateOffsetsPointsToSet.h
-+++ b/dg/include/dg/PointerAnalysis/PointsToSets/SeparateOffsetsPointsToSet.h
-@@ -4,6 +4,7 @@
- #include "dg/PointerAnalysis/Pointer.h"
- #include "dg/ADT/Bitvector.h"
- 
-+#include <cstdlib>
- #include <map>
- #include <vector>
- 
-diff --git a/dg/lib/llvm/ThreadRegions/include/Graphs/GraphBuilder.h b/lib/llvm/ThreadRegions/include/Graphs/GraphBuilder.h
-index 27fcf23e..186e07fb 100644
---- a/dg/lib/dg/llvm/ThreadRegions/include/Graphs/GraphBuilder.h
-+++ b/dg/lib/llvm/ThreadRegions/include/Graphs/GraphBuilder.h
-@@ -1,6 +1,7 @@
- #ifndef GRAPHBUILDER_H
- #define GRAPHBUILDER_H
- 
-+#include <iostream>
- #include <utility>
- #include <set>
- #include <unordered_set>
-
-diff --git a/sbt-instrumentation/CMakeLists.txt b/sbt-instrumentation/CMakeLists.txt
-index 3488ca3..d981ccd 100644
---- a/sbt-instrumentation/CMakeLists.txt
-+++ b/sbt-instrumentation/CMakeLists.txt
-@@ -1,7 +1,7 @@
- cmake_minimum_required(VERSION 2.8.8)
- project(instr)
- 
--set(CMAKE_CXX_STANDARD 11)
-+set(CMAKE_CXX_STANDARD 14)
- set(CMAKE_CXX_STANDARD_REQUIRED on)
- 
- # Compiler Options
-
-diff --git a/sbt-instrumentation/analyses/predator_plugin.hpp b/sbt-instrumentation/analyses/predator_plugin.hpp
-index ef4f585..1b5622e 100644
---- a/sbt-instrumentation/analyses/predator_plugin.hpp
-+++ b/sbt-instrumentation/analyses/predator_plugin.hpp
-@@ -6,6 +6,7 @@
- #include <vector>
- 
- #include <llvm/IR/Module.h>
-+#include <llvm/Support/raw_ostream.h>
- #include "instr_plugin.hpp"
- 
- class PredatorPlugin : public InstrPlugin
-
+        	build || exit 1
