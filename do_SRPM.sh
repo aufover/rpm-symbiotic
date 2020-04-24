@@ -3,7 +3,7 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-479-g9111d89"
+SYMBIOTIC_REV="svcomp19-487-gc7cabf8"
 
 rm -rf srpm
 mkdir srpm
@@ -100,8 +100,6 @@ export KLEE_VERSION=$KLEE_VERSION
 ./system-build.sh %{?_smp_mflags}
 
 %install
-export QA_RPATHS=$(( 0x0001|0x0010 ))
-
 mkdir -p %{buildroot}/opt/%{name}
 cp -pr install/* %{buildroot}/opt/%{name}
 

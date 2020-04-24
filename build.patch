@@ -1,41 +1,4 @@
---- a/system-build.sh	2020-03-02 18:10:34.363299468 +0100
-+++ b/system-build.sh	2020-03-02 18:03:53.186716422 +0100
-@@ -47,7 +47,7 @@
- 	echo -e "OPTS = options for make (i. e. -j8)"
- }
- 
--export PREFIX=`pwd`/install
-+export PREFIX=${PREFIX:-`pwd`/install}
- export LD_LIBRARY_PATH="$PREFIX/lib:$LD_LIBRARY_PATH"
- export C_INCLUDE_PATH="$PREFIX/include:$C_INCLUDE_PATH"
- export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig:$PKG_CONFIG_PATH"
-@@ -248,12 +248,7 @@
- 		exitmsg "Cannot find working $T binary".
- 	fi
- 
--	if readlink -- "${TOOL}" >/dev/null; then
--		# avoid making copy of a ccache executable (symlink's target)
--		ln -fs "${TOOL}" "${LLVM_PREFIX}/bin/"
--	else
--		cp ${TOOL} $LLVM_PREFIX/bin
--	fi
-+   ln -fs "${TOOL}" "${LLVM_PREFIX}/bin/"
- done
- 
- mkdir -p $LLVM_PREFIX/lib
-
---- a/sbt-instrumentation/bootstrap-dg.sh	2020-03-02 17:33:38.968078698 +0100
-+++ b/sbt-instrumentation/bootstrap-dg.sh	2019-12-13 12:46:21.520290470 +0100
-@@ -9,7 +9,7 @@
- # don't do redundant work
- if [ ! -d dg ]; then
- 	# checkout dg directory
--	git clone https://github.com/mchalupa/dg.git
-+	true
- fi
- 
- cd dg
-
+# Skip submodule initialisation
 --- a/scripts/build-utils.sh
 +++ b/scripts/build-utils.sh
 @@ -75,12 +75,7 @@
@@ -48,37 +11,12 @@
 -	git submodule update || exitmsg "submodule update failed"
 -
 -	cd -
-+    true
++	true
  }
  
  GET="curl -LRO"
 
---- a/sbt-instrumentation/bootstrap-json.sh
-+++ b/sbt-instrumentation/bootstrap-json.sh
-@@ -8,12 +8,7 @@ 
- 
- # don't do redundant work
- if [ ! -d jsoncpp ]; then
--	# checkout jsoncpp directory
--	git clone https://github.com/open-source-parsers/jsoncpp
--	# FIXME: until a bug in building is fixed in the upstream
--	cd jsoncpp
--	git checkout c51d718ead5b
--	cd -
-+	true
- fi
- 
- cd jsoncpp
-@@ -22,7 +17,7 @@
- fi
- 
- make
--python amalgamate.py
-+python3 amalgamate.py
- 
- # copy the jsoncpp.cpp file into parent's src/ folder
- cp dist/jsoncpp.cpp ../src/
-
+# Versions are parsed in advance during SRPM creation
 --- a/scripts/gen-version.sh
 +++ b/scripts/gen-version.sh
 @@ -1,22 +1,22 @@
@@ -117,18 +55,6 @@
  KLEE_BUILD_TYPE=$(grep 'CMAKE_BUILD_TYPE' CMakeCache.txt | sed 's@.*=\(.*\)@\1@')
  KLEE_RUNTIME_BUILD_TYPE=$(grep '^KLEE_RUNTIME_BUILD_TYPE[^-]' CMakeCache.txt | sed 's@.*=\(.*\)@\1@')
  popd
-
---- a/scripts/push-to-git.sh
-+++ b/scripts/push-to-git.sh
-@@ -126,6 +126,8 @@ if [ "$BUILD_Z3" = "yes" ]; then
- 	LIBRARIES="$LIBRARIES $PREFIX/lib/libz3*.so*"
- fi
- 
-+exit 0
-+
- #strip binaries, it will save us 500 MB!
- for B in $BINARIES $LIBRARIES; do
- 	echo "Stripping $B"
 --- a/sbt-instrumentation/src/CMakeLists.txt
 +++ b/sbt-instrumentation/src/CMakeLists.txt
 @@ -1,10 +1,3 @@
@@ -142,16 +68,6 @@
  add_executable(sbt-instr
  	rewriter.cpp
  	instr_log.cpp
---- a/scripts/precompile_bitcode_files.sh
-+++ b/scripts/precompile_bitcode_files.sh
-@@ -1,6 +1,6 @@
- INSTR="sbt-instrumentation/"
- LIBS="lib/"
--PREFIX="install"
-+PREFIX=${PREFIX:-"install"}
- 
- set -e
- 
 --- a/sbt-slicer/src/CMakeLists.txt
 +++ b/sbt-slicer/src/CMakeLists.txt
 @@ -1,10 +1,3 @@
@@ -166,57 +82,27 @@
  target_link_libraries(sbt-slicer ${dg_libs} ${llvm_libs})
  add_dependencies(sbt-slicer gitversion)
 
---- a/system-build.sh
-+++ b/system-build.sh
-@@ -277,6 +277,7 @@ if [ $FROM -le 1 ]; then
- 			-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
- 			-DCMAKE_INSTALL_LIBDIR:PATH=lib \
- 			-DCMAKE_INSTALL_PREFIX=$LLVM_PREFIX \
-+           -DCMAKE_INSTALL_RPATH="\$ORIGIN/../lib" \
- 			-DLLVM_DIR=$($LLVM_CONFIG --cmakedir) \
- 			|| clean_and_exit 1 "git"
- 	fi
-@@ -301,6 +302,7 @@ if [ $FROM -le 1 ]; then
- 			-DLLVM_DIR=$($LLVM_CONFIG --cmakedir) \
- 			-DDG_PATH=$ABS_SRCDIR/dg \
- 			-DCMAKE_INSTALL_PREFIX=$LLVM_PREFIX \
-+           -DCMAKE_INSTALL_RPATH="\$ORIGIN/../lib" \
- 			|| clean_and_exit 1 "git"
- 	fi
+# End the build script before the `strip` phase, because everything from this
+# point can handle `rpmbuild` on its own.
+--- a/scripts/push-to-git.sh
++++ b/scripts/push-to-git.sh
+@@ -126,6 +126,8 @@ if [ "$BUILD_Z3" = "yes" ]; then
+ 	LIBRARIES="$LIBRARIES $PREFIX/lib/libz3*.so*"
+ fi
  
++exit 0
++
+ #strip binaries, it will save us 500 MB!
+ for B in $BINARIES $LIBRARIES; do
+ 	echo "Stripping $B"
+
+# Use `jsoncpp` from repos (`jsoncpp-devel`).
+# This also makes the `rsync` dependency redundant.
 diff --git a/system-build.sh b/system-build.sh
+index cb4ecff..4660656 100755
 --- a/system-build.sh
 +++ b/system-build.sh
-@@ -257,7 +257,11 @@ for T in $LLVM_TOOLS; do
- done
- 
- mkdir -p $LLVM_PREFIX/lib
--ln -sf $(dirname $(which clang))/../lib/clang/ $LLVM_PREFIX/lib/
-+CLANG_LIBS=$($LLVM_CONFIG --libdir)/clang/
-+if [ ! -d $CLANG_LIBS ]; then
-+    exitmsg "Invalid path to clang libraries."
-+fi
-+ln -sf $CLANG_LIBS $LLVM_PREFIX/lib/
- 
- ######################################################################
- #   dg
-@@ -369,11 +369,6 @@ if [ $FROM -le 6 ]; then
- 
- 	pushd "$SRCDIR/sbt-instrumentation" || exitmsg "Cloning failed"
- 
--	# bootstrap JSON library if needed
--	if [ ! -f jsoncpp/dist/jsoncpp.cpp ]; then
--		./bootstrap-json.sh || exitmsg "Failed generating json files"
--	fi
--
- 	mkdir -p build-${LLVM_VERSION}
- 	pushd build-${LLVM_VERSION}
- 	if [ ! -d CMakeFiles ]; then
-diff --git a/system-build.sh b/system-build.sh
-index 43c0365..94bbf41 100755
---- a/system-build.sh
-+++ b/system-build.sh
-@@ -184,12 +184,6 @@ check()
+@@ -189,12 +189,6 @@ check()
  		MISSING="make $MISSING"
  	fi
  
@@ -229,3 +115,15 @@ index 43c0365..94bbf41 100755
  	if ! tar --version &>/dev/null; then
  		echo "Need tar utility"
  		MISSING="tar $MISSING"
+@@ -382,11 +376,6 @@ if [ $FROM -le 6 ]; then
+ 
+ 	pushd "$SRCDIR/sbt-instrumentation" || exitmsg "Cloning failed"
+ 
+-	# bootstrap JSON library if needed
+-	if [ ! -f jsoncpp/dist/jsoncpp.cpp ]; then
+-		./bootstrap-json.sh || exitmsg "Failed generating json files"
+-	fi
+-
+ 	mkdir -p build-${LLVM_VERSION}
+ 	pushd build-${LLVM_VERSION}
+ 	if [ ! -d CMakeFiles ]; then

@@ -1,21 +1,182 @@
---- a/scripts/symbiotic
-+++ b/scripts/symbiotic
-@@ -23,7 +23,7 @@ import os
- from time import time
+# Useless patches, that may be useful to be upstreamed
+--- a/sbt-instrumentation/bootstrap-json.sh
++++ b/sbt-instrumentation/bootstrap-json.sh
+@@ -22,7 +17,7 @@
+ fi
+ 
+ make
+-python amalgamate.py
++python3 amalgamate.py
+ 
+ # copy the jsoncpp.cpp file into parent's src/ folder
+ cp dist/jsoncpp.cpp ../src/
 
- # set path to our package
--pth = os.path.join(os.path.dirname(__file__), '../lib/symbioticpy')
-+pth = os.path.join(os.path.dirname(os.readlink(__file__)), '../lib/symbioticpy')
- sys.path.append(os.path.abspath(pth))
-
- from symbiotic.utils import err, dbg
-
-# Find coorrect LLVM cmaka dir on rpm-based distros
+# lzaoral/fix-custom-llvm
 diff --git a/system-build.sh b/system-build.sh
-index aee9cc2..27ad938 100755
+index cb4ecff..b83932a 100755
 --- a/system-build.sh
 +++ b/system-build.sh
-@@ -234,12 +234,7 @@ export LLVM_PREFIX="$PREFIX/llvm-$LLVM_VERSION"
+@@ -246,21 +246,22 @@ elif [ $LLVM_MAJOR_VERSION -ge 3 -a $LLVM_MINOR_VERSION -ge 9 ]; then
+ 	LLVM_CMAKE_CONFIG_DIR=lib/cmake/llvm
+ fi
+ 
++LLVM_BIN_DIR=$("$LLVM_CONFIG" --bindir)
++
+ mkdir -p $LLVM_PREFIX/bin
+ for T in $LLVM_TOOLS; do
+-	TOOL=$(which $T || true)
+-
+-	# always avoid making copy of a ccache executable (symlink's target)
+-	if [[ "$TOOL" =~ "ccache" ]]; then
+-		TOOL="/usr/bin/$T"
++	TOOL="$LLVM_BIN_DIR/$T"
++	if [ ! -x "${TOOL}" ]; then
++		exitmsg "Cannot find working $T binary".
+ 	fi
+ 
+-	if [ -z "${TOOL}" -o ! -x "${TOOL}" ]; then
+-		exitmsg "Cannot find working $T binary"
++	TOOL_VERSION=$("$TOOL" --version)
++	if [[ ! "$TOOL_VERSION" =~ "$LLVM_VERSION" ]]; then
++		exitmsg "$T has wrong version. Expected: $LLVM_VERSION Found: $TOOL_VERSION"
+ 	fi
+ 
+ 	# copy the binaries only with full-archive option
+-	if [ "$FULL_ARCHIVE" = "no" ] || readlink -- "${TOOL}" > /dev/null; then
++	if [ "$FULL_ARCHIVE" = "no" ] ; then
+ 		ln -fs "${TOOL}" "${LLVM_PREFIX}/bin"
+ 	else
+ 		cp -rf "${TOOL}" "${LLVM_PREFIX}/bin"
+
+diff --git a/system-build.sh b/system-build.sh
+index b83932a..dbe983f 100755
+--- a/system-build.sh
++++ b/system-build.sh
+@@ -269,7 +269,11 @@ for T in $LLVM_TOOLS; do
+ done
+ 
+ mkdir -p $LLVM_PREFIX/lib
+-ln -sf $(dirname $(which clang))/../lib/clang/ $LLVM_PREFIX/lib/
++CLANG_LIBS=$("$LLVM_CONFIG" --libdir)/clang/
++if [ ! -d "$CLANG_LIBS" ]; then
++    exitmsg "Invalid path to clang libraries."
++fi
++ln -sf "$CLANG_LIBS" "$LLVM_PREFIX/lib/"
+ 
+ ######################################################################
+ #   dg
+
+diff --git a/scripts/precompile_bitcode_files.sh b/scripts/precompile_bitcode_files.sh
+index c662433..6dd9824 100755
+--- a/scripts/precompile_bitcode_files.sh
++++ b/scripts/precompile_bitcode_files.sh
+@@ -14,7 +14,7 @@ ORIG_CPPFLAGS="$CPPFLAGS"
+ for LLVM in $PREFIX/llvm-*; do
+ 	CLANG=$LLVM/bin/clang
+ 	LLVM_VERSION=${LLVM#*llvm-*}
+-	INCLUDE_DIR="llvm-${LLVM_VERSION}/build/lib/clang/${LLVM_VERSION}/include/"
++	INCLUDE_DIR="$LLVM/lib/clang/${LLVM_VERSION}/include/"
+ 	CPPFLAGS="-I ${INCLUDE_DIR} $ORIG_CPPFLAGS"
+ 	for F in `find $INSTR/instrumentations/ -name '*.c'`; do
+ 		NAME=`basename $F`
+@@ -33,7 +33,7 @@ done
+ for LLVM in $PREFIX/llvm-*; do
+ 	CLANG=$LLVM/bin/clang
+ 	LLVM_VERSION=${LLVM#*llvm-*}
+-	INCLUDE_DIR="llvm-${LLVM_VERSION}/build/lib/clang/${LLVM_VERSION}/include/"
++	INCLUDE_DIR="$LLVM/lib/clang/${LLVM_VERSION}/include/"
+ 	CPPFLAGS="-I ${INCLUDE_DIR} -Iinclude/ $ORIG_CPPFLAGS"
+ 	for F in `find $LIBS -name '*.c'`; do
+ 		NAME=`basename $F`
+
+diff --git a/scripts/build-utils.sh b/scripts/build-utils.sh
+index 3a43d55..8b6feed 100644
+--- a/scripts/build-utils.sh
++++ b/scripts/build-utils.sh
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ 
+ set -x
+ 
+@@ -57,6 +57,20 @@ build()
+ 	return 0
+ }
+ 
++check_llvm_tool()
++{
++	TOOL_PATH="$1"
++	TOOL_NAME="$(dirname "$1")"
++	if [ ! -x "$TOOL_PATH" ]; then
++		exitmsg "Cannot find working $TOOL_NAME binary".
++	fi
++
++	TOOL_VERSION=$("$TOOL_PATH" --version)
++	if [[ ! "$TOOL_VERSION" =~ "$LLVM_VERSION" ]]; then
++		exitmsg "$TOOL_NAME has wrong version. Expected: $LLVM_VERSION Found: $TOOL_VERSION"
++	fi
++}
++
+ git_clone_or_pull()
+ {
+ 
+diff --git a/system-build.sh b/system-build.sh
+index dbe983f..8748120 100755
+--- a/system-build.sh
++++ b/system-build.sh
+@@ -250,28 +250,21 @@ LLVM_BIN_DIR=$("$LLVM_CONFIG" --bindir)
+ 
+ mkdir -p $LLVM_PREFIX/bin
+ for T in $LLVM_TOOLS; do
+-	TOOL="$LLVM_BIN_DIR/$T"
+-	if [ ! -x "${TOOL}" ]; then
+-		exitmsg "Cannot find working $T binary".
+-	fi
+-
+-	TOOL_VERSION=$("$TOOL" --version)
+-	if [[ ! "$TOOL_VERSION" =~ "$LLVM_VERSION" ]]; then
+-		exitmsg "$T has wrong version. Expected: $LLVM_VERSION Found: $TOOL_VERSION"
+-	fi
++	check_llvm_tool "$LLVM_BIN_DIR/$T"
+ 
+ 	# copy the binaries only with full-archive option
+ 	if [ "$FULL_ARCHIVE" = "no" ] ; then
+-		ln -fs "${TOOL}" "${LLVM_PREFIX}/bin"
+-	else
+-		cp -rf "${TOOL}" "${LLVM_PREFIX}/bin"
++		ln -fs "$LLVM_BIN_DIR/$T" "$LLVM_PREFIX/bin"
++		continue
+ 	fi
++
++	cp -L "$LLVM_BIN_DIR/$T" "$LLVM_PREFIX/bin"
+ done
+ 
+ mkdir -p $LLVM_PREFIX/lib
+ CLANG_LIBS=$("$LLVM_CONFIG" --libdir)/clang/
+ if [ ! -d "$CLANG_LIBS" ]; then
+-    exitmsg "Invalid path to clang libraries."
++	exitmsg "Invalid path to clang libraries."
+ fi
+ ln -sf "$CLANG_LIBS" "$LLVM_PREFIX/lib/"
+ 
+diff --git a/scripts/build-utils.sh b/scripts/build-utils.sh
+index 8b6feed..1cfdbd4 100644
+--- a/scripts/build-utils.sh
++++ b/scripts/build-utils.sh
+@@ -60,7 +60,7 @@ build()
+ check_llvm_tool()
+ {
+ 	TOOL_PATH="$1"
+-	TOOL_NAME="$(dirname "$1")"
++	TOOL_NAME="$(basename "$1")"
+ 	if [ ! -x "$TOOL_PATH" ]; then
+ 		exitmsg "Cannot find working $TOOL_NAME binary".
+ 	fi
+diff --git a/system-build.sh b/system-build.sh
+index 8748120..9b5a515 100755
+--- a/system-build.sh
++++ b/system-build.sh
+@@ -239,13 +239,6 @@ export LLVM_PREFIX="$PREFIX/llvm-$LLVM_VERSION"
  LLVM_MAJOR_VERSION="${LLVM_VERSION%%\.*}"
  LLVM_MINOR_VERSION=${LLVM_VERSION#*\.}
  LLVM_MINOR_VERSION="${LLVM_MINOR_VERSION%\.*}"
@@ -25,16 +186,133 @@ index aee9cc2..27ad938 100755
 -elif [ $LLVM_MAJOR_VERSION -ge 3 -a $LLVM_MINOR_VERSION -ge 9 ]; then
 -	LLVM_CMAKE_CONFIG_DIR=lib/cmake/llvm
 -fi
-+LLVM_CMAKE_CONFIG_DIR="$($LLVM_CONFIG --cmakedir)"
+-
+ LLVM_BIN_DIR=$("$LLVM_CONFIG" --bindir)
  
  mkdir -p $LLVM_PREFIX/bin
- for T in $LLVM_TOOLS; do
-@@ -351,7 +346,7 @@ if [ $FROM -le 6 -a "$BUILD_PREDATOR" = "yes" ]; then
+@@ -350,7 +343,9 @@ if [ $FROM -le 6 -a "$BUILD_PREDATOR" = "yes" ]; then
  	pushd predator-${LLVM_VERSION}
  
  	if [ ! -d CMakeFiles ]; then
 -	        CXX=clang++ ./switch-host-llvm.sh /usr/${LLVM_CMAKE_CONFIG_DIR}
-+	        CXX=clang++ ./switch-host-llvm.sh "${LLVM_CMAKE_CONFIG_DIR}"
++		check_llvm_tool "$LLVM_BIN_DIR/clang++"
++		CXX="$LLVM_BIN_DIR/clang++" ./switch-host-llvm.sh \
++			"$("$LLVM_CONFIG" --cmakedir)"
  	fi
  
         	build || exit 1
+
+# Fix double installation of LLVMsbt.so + some other goodies
+diff --git a/transforms/CMakeLists.txt b/transforms/CMakeLists.txt
+index 431b055..0662a69 100644
+--- a/transforms/CMakeLists.txt
++++ b/transforms/CMakeLists.txt
+@@ -3,17 +3,13 @@ project(sbt-transforms)
+ 
+ find_package(LLVM REQUIRED CONFIG)
+ 
+-list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
+ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+-
+-# needed for LLVM 3.7
+-set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+-set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+-include(HandleLLVMOptions)
+-
+ include(LLVMConfig)
+ include(AddLLVM)
+ 
++message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
++message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
++
+ # explicitly add -std=c++11 (c++14), some cmake versions
+ # fail adding it even with CMAKE_CXX_STANDARD,
+ # LLVM 10 and newer require at least C++14 standard
+@@ -33,9 +29,9 @@ if (NOT ${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
+   llvm_replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti")
+ endif()
+ 
+-set(INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX} CACHE PATH "Installation directory for executables")
+-set(INSTALL_INC_DIR include CACHE PATH "Installation directory for headers")
+-set(INSTALL_DATA_DIR ${CMAKE_INSTALL_PREFIX} CACHE PATH "Installation directory for data files")
++message(STATUS "LLVM include dir: ${LLVM_INCLUDE_DIRS}")
++message(STATUS "LLVM libraries dir: ${LLVM_LIBRARY_DIRS}")
++message(STATUS "LLVM definitions: ${LLVM_DEFINITIONS}")
+ 
+ add_definitions(${LLVM_DEFINITIONS})
+ include_directories(${LLVM_INCLUDE_DIRS})
+@@ -58,42 +54,40 @@ message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
+ 
+ # We need all the symbols with dynamic libs. With static libs, we get errors.
+ if (BUILD_SHARED_LIBS)
+-	set(LLVM_LINK_COMPONENTS analysis core support)
++        set(LLVM_LINK_COMPONENTS analysis core support)
+ endif()
+ 
+ set(CPPFILES "CloneMetadata.cpp"
+-	     "CheckModule.cpp"
+-	     "RemoveReadOnlyAttr.cpp"
+-	     "RemoveErrorCalls.cpp"
+-	     "FindExits.cpp"
+-	     "RenameVerifierFuns.cpp"
+-	     "MakeNondet.cpp"
+-	     "InitializeUninitialized.cpp"
+-	     "InternalizeGlobals.cpp"
+-	     "RemoveInfiniteLoops.cpp"
+-	     "BreakInfiniteLoops.cpp"
+-	     "BreakCritLoops.cpp"
+-	     "DeleteUndefined.cpp"
+-	     "ReplaceUBSan.cpp"
+-	     "ReplaceAsserts.cpp"
+-	     "InstrumentAlloc.cpp"
+-	     "CountInstr.cpp"
+-	     "MarkVolatile.cpp"
+-	     "DummyMarker.cpp"
+-	     "ReplaceLifetimeMarkers.cpp"
+-	     "ReplaceVerifierAtomic.cpp"
+-	     "Unrolling.cpp"
+-	     "InstrumentNontermination.cpp"
+-	     "ClassifyLoops.cpp"
+-	     "ClassifyInstructions.cpp"
+-	     "Prepare.cpp"
+-	     "PrepareOverflows.cpp")
+-
+-if (${LLVM_PACKAGE_VERSION} VERSION_LESS "8")
+-	add_llvm_loadable_module(LLVMsbt ${CPPFILES})
+-else()
+-	add_llvm_library(LLVMsbt MODULE ${CPPFILES})
+-endif()
++             "CheckModule.cpp"
++             "RemoveReadOnlyAttr.cpp"
++             "RemoveErrorCalls.cpp"
++             "FindExits.cpp"
++             "RenameVerifierFuns.cpp"
++             "MakeNondet.cpp"
++             "InitializeUninitialized.cpp"
++             "InternalizeGlobals.cpp"
++             "RemoveInfiniteLoops.cpp"
++             "BreakInfiniteLoops.cpp"
++             "BreakCritLoops.cpp"
++             "DeleteUndefined.cpp"
++             "ReplaceUBSan.cpp"
++             "ReplaceAsserts.cpp"
++             "InstrumentAlloc.cpp"
++             "CountInstr.cpp"
++             "MarkVolatile.cpp"
++             "DummyMarker.cpp"
++             "ReplaceLifetimeMarkers.cpp"
++             "ReplaceVerifierAtomic.cpp"
++             "Unrolling.cpp"
++             "InstrumentNontermination.cpp"
++             "ClassifyLoops.cpp"
++             "ClassifyInstructions.cpp"
++             "Prepare.cpp"
++             "PrepareOverflows.cpp")
++
++add_library(LLVMsbt MODULE ${CPPFILES})
++# remove lib prefix for compatibility with older releases
++set_target_properties(LLVMsbt PROPERTIES PREFIX "")
+ 
+ install(TARGETS LLVMsbt
+-	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
++        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
