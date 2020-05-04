@@ -11,6 +11,19 @@ def parse_input(str):
     stack = ""
     info = ""
 
+    cc_info = ""
+
+#7.0.0-dev-llvm-9.0.1-symbiotic:c7cabf85-dg:8fd21926-sbt-slicer:ce747eca-sbt-instrumentation:ff5d8b3f-klee:e773a1f8
+#cc: /tmp/foo.c:3:31: error: expected ';' at end of declaration
+
+#RESULT: ERROR (Compiling source '/tmp/foo.c' failed)
+#ERROR:  == FAILURE ==
+#Compiling source '/tmp/foo.c' failed
+
+    #compilation failure
+    e_cc_info_re = re.compile('cc:[ \t](.*)')
+    e_error_compile_re = re.compile('RESULT: ERROR \(Compiling source \'(.*)\' failed\)')
+
     e_start_re = re.compile('--- Error trace ---')
     e_end_re = re.compile('--- ----------- ---')
     e_file_re = re.compile('File:\s*(\S*)\s*')
@@ -25,6 +38,11 @@ def parse_input(str):
 
     e_unknown_re = re.compile('RESULT: unknown \((.*)\)')
     for l in str.splitlines():
+        if (e_cc_info_re.match(l) != None):
+            cc_info += e_cc_info_re.search(l).group(1)+"\n"
+        if (e_error_compile_re.match(l) != None):
+            print ("Error: CLANG_WARNING:")
+            print (cc_info, end='')
         #stack state is not part of the elif chain
         if (state == "stack"):
             if (e_stack_line_re.match(l) != None):
