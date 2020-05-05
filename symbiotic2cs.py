@@ -37,12 +37,16 @@ def parse_input(str):
     e_info_line_re = re.compile('\s+(.*)\s*')
 
     e_unknown_re = re.compile('RESULT: unknown \((.*)\)')
+    e_error_re = re.compile('RESULT: ERROR \((.*)\)')
     for l in str.splitlines():
         if (e_cc_info_re.match(l) != None):
             cc_info += e_cc_info_re.search(l).group(1)+"\n"
         if (e_error_compile_re.match(l) != None):
             print ("Error: CLANG_WARNING:")
             print (cc_info, end='')
+        elif (e_error_re.match(l) != None):
+            print ("Error: SYMBIOTIC_WARNING:")
+            print (file + ":" +line +": error: " + l)
         #stack state is not part of the elif chain
         if (state == "stack"):
             if (e_stack_line_re.match(l) != None):
