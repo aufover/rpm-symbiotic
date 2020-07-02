@@ -58,7 +58,7 @@ tar -Jcf "symbiotic-$VER.tar.xz" "symbiotic-$VER"
 cat > symbiotic.spec << EOF
 Name:       $PKG
 Version:    $VER
-Release:    1%{?dist}
+Release:    2%{?dist}
 Summary:    Tool for analysis of sequential computer programs written in C
 License:    Free
 URL:        https://github.com/staticafi/%{name}
@@ -97,6 +97,7 @@ export SBT_SLICER_VERSION=$SBT_SLICER_VERSION
 export INSTRUMENTATION_VERSION=$INSTRUMENTATION_VERSION
 export KLEE_VERSION=$KLEE_VERSION
 
+%set_build_flags
 ./system-build.sh %{?_smp_mflags}
 
 %install

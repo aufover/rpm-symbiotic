@@ -202,3 +202,135 @@ index 8748120..9b5a515 100755
  
         	build || exit 1
 
+# build with default Fedora build flags
+diff --git a/scripts/build-utils.sh b/scripts/build-utils.sh
+index 3a43d55..60597d0 100644
+--- a/scripts/build-utils.sh
++++ b/scripts/build-utils.sh
+@@ -53,7 +53,7 @@ clean_and_exit()
+ 
+ build()
+ {
+-	make $OPTS CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" $@ || exit 1
++	make $OPTS CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $@ || exit 1
+ 	return 0
+ }
+ 
+diff --git a/scripts/precompile_bitcode_files.sh b/scripts/precompile_bitcode_files.sh
+index c662433..e84e123 100755
+--- a/scripts/precompile_bitcode_files.sh
++++ b/scripts/precompile_bitcode_files.sh
+@@ -10,22 +10,21 @@ fi
+ 
+ # precompile instrumentation files
+ FILES=
+-ORIG_CPPFLAGS="$CPPFLAGS"
+ for LLVM in $PREFIX/llvm-*; do
+ 	CLANG=$LLVM/bin/clang
+ 	LLVM_VERSION=${LLVM#*llvm-*}
+ 	INCLUDE_DIR="$LLVM/lib/clang/${LLVM_VERSION}/include/"
+-	CPPFLAGS="-I ${INCLUDE_DIR} $ORIG_CPPFLAGS"
++	CPPFLAGS="-I ${INCLUDE_DIR}"
+ 	for F in `find $INSTR/instrumentations/ -name '*.c'`; do
+ 		NAME=`basename $F`
+ 		OUT=${NAME%*.c}.bc
+ 		mkdir -p "$LLVM/lib" "$LLVM/lib32"
+ 
+ 		FILES="$FILES ${LLVM#install/}/lib/$OUT"
+-		$CLANG $CPPFLAGS -O3 -emit-llvm -c $F -o $LLVM/lib/$OUT $CPPFLAGS $CFLAGS $LDFLAGS
++		$CLANG $CPPFLAGS -O3 -emit-llvm -c $F -o $LLVM/lib/$OUT
+ 
+ 		FILES="$FILES ${LLVM#install/}/lib32/$OUT"
+-		$CLANG $CPPFLAGS -O3 -emit-llvm -c $F -m32 -o $LLVM/lib32/$OUT $CPPFLAGS $CFLAGS $LDFLAGS
++		$CLANG $CPPFLAGS -O3 -emit-llvm -c $F -m32 -o $LLVM/lib32/$OUT
+ 	done
+ done
+ 
+@@ -34,18 +33,18 @@ for LLVM in $PREFIX/llvm-*; do
+ 	CLANG=$LLVM/bin/clang
+ 	LLVM_VERSION=${LLVM#*llvm-*}
+ 	INCLUDE_DIR="$LLVM/lib/clang/${LLVM_VERSION}/include/"
+-	CPPFLAGS="-I ${INCLUDE_DIR} -Iinclude/ $ORIG_CPPFLAGS"
++	CPPFLAGS="-I ${INCLUDE_DIR} -Iinclude/"
+ 	for F in `find $LIBS -name '*.c'`; do
+ 		NAME=`basename $F`
+ 		OUT="${F#*/}" # strip the lib/ prefix
+ 		OUT="${OUT%*.c}.bc" # change .c for .bc
+ 
+ 		mkdir -p "$(dirname $LLVM/lib/$OUT)"
+-		$CLANG $CPPFLAGS -O3 -emit-llvm -c $F -o $LLVM/lib/$OUT $CPPFLAGS $CFLAGS $LDFLAGS
++		$CLANG $CPPFLAGS -O3 -emit-llvm -c $F -o $LLVM/lib/$OUT
+ 		FILES="$FILES ${LLVM#install/}/lib/$OUT"
+ 
+ 		mkdir -p "$(dirname $LLVM/lib32/$OUT)"
+-		$CLANG $CPPFLAGS -O3 -emit-llvm -c $F -m32 -o $LLVM/lib32/$OUT $CPPFLAGS $CFLAGS $LDFLAGS
++		$CLANG $CPPFLAGS -O3 -emit-llvm -c $F -m32 -o $LLVM/lib32/$OUT
+ 		FILES="$FILES ${LLVM#install/}/lib32/$OUT"
+ 	done
+ done
+diff --git a/transforms/CMakeLists.txt b/transforms/CMakeLists.txt
+index 4f71902..2e267f7 100644
+--- a/transforms/CMakeLists.txt
++++ b/transforms/CMakeLists.txt
+@@ -9,13 +9,6 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+ list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
+ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+ 
+-if (${LLVM_PACKAGE_VERSION} VERSION_LESS_EQUAL "3.7")
+-  # needed for LLVM 3.7
+-  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+-  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+-  include(HandleLLVMOptions)
+-endif()
+-
+ include(AddLLVM)
+ 
+ # explicitly add -std=c++11 (c++14), some cmake versions
+@@ -57,11 +50,6 @@ include(GNUInstallDirs)
+ message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
+ message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
+ 
+-# We need all the symbols with dynamic libs. With static libs, we get errors.
+-if (BUILD_SHARED_LIBS)
+-  set(LLVM_LINK_COMPONENTS analysis core support)
+-endif()
+-
+ add_library(LLVMsbt MODULE "BreakCritLoops.cpp"
+                            "BreakInfiniteLoops.cpp"
+                            "CheckModule.cpp"
+@@ -92,6 +80,7 @@ add_library(LLVMsbt MODULE "BreakCritLoops.cpp"
+ 
+ # remove lib prefix for compatibility with older releases
+ set_target_properties(LLVMsbt PROPERTIES PREFIX "")
++target_link_libraries(LLVMsbt LLVM)
+ 
+ install(TARGETS LLVMsbt
+         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+diff --git a/transforms/InternalizeGlobals.cpp b/transforms/InternalizeGlobals.cpp
+index 3c6a3db..3d7c5a7 100644
+--- a/transforms/InternalizeGlobals.cpp
++++ b/transforms/InternalizeGlobals.cpp
+@@ -64,9 +64,8 @@ bool InternalizeGlobals::initializeExternalGlobals(Module& M) {
+     // GV is a pointer to some memory, we want the size of the memory
+     Type *Ty = GV->getType()->getContainedType(0);
+     if (!Ty->isSized()) {
+-      GV->dump();
+-      llvm::errs() << "ERROR: failed making global variable symbolic "
+-                      "(type is unsized)\n";
++      llvm::errs() << GV << "\nERROR: failed making global variable symbolic "
++                            "(type is unsized)\n";
+       continue;
+     }
+ 
+@@ -86,9 +85,8 @@ bool InternalizeGlobals::initializeExternalGlobals(Module& M) {
+     // point to and set it to symbolic at the beggining of main
+     if (Ty->isPointerTy()) {
+         if (!Ty->getContainedType(0)->isSized()) {
+-            GV->dump();
+-            llvm::errs() << "ERROR: failed making global variable symbolic "
+-                            "(referenced type is unsized)\n";
++            llvm::errs() << GV << "\nERROR: failed making global variable "
++                                  "symbolic (referenced type is unsized)\n";
+             continue;
+         }
+ 
