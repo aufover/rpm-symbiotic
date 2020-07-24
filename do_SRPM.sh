@@ -64,6 +64,7 @@ License:    Free
 URL:        https://github.com/staticafi/%{name}
 Source0:    %{name}-%{version}.tar.xz
 Source1:    symbiotic2cs.py
+Source2:    csexec-symbiotic.sh
 Patch0:     build.patch
 Patch1:     hotfix.patch
 
@@ -106,14 +107,16 @@ cp -pr install/* %{buildroot}/opt/%{name}
 
 mkdir -p %{buildroot}%{_bindir}
 install -m 755 %{SOURCE1} %{buildroot}%{_bindir}/symbiotic2cs
+install -m 755 %{SOURCE2} %{buildroot}%{_bindir}/csexec-symbiotic
 ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}%{_bindir}/symbiotic
 
 %files
 /opt/%{name}/
 %{_bindir}/%{name}
 %{_bindir}/symbiotic2cs
+%{_bindir}/csexec-symbiotic
 EOF
 
-cp ../{symbiotic2cs.py,build.patch,hotfix.patch} .
+cp ../{symbiotic2cs.py,csexec-symbiotic.sh,build.patch,hotfix.patch} .
 
 rpmbuild -bs symbiotic.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"
