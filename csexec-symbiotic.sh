@@ -12,16 +12,19 @@ USAGE:
 EOF
 }
 
-set -e
-
 if [ $# -eq 0 ]; then
   usage
   exit 1
 fi
 
+if [ ! -x /usr/bin/get-bc ]; then
+  echo "gllvm is not installed!" > /dev/tty
+  exit 42
+fi
+
 i=1
 while [ ! -e ${!i} ]; do
-  SYMBIOTIC_ARGS="$SYMBIOTIC_ARGS ${!i}"
+  SYMBIOTIC_ARGS[$i - 1]="${!i}"
   ((i++))
 done
 
@@ -45,5 +48,13 @@ while [ $i -le $# ]; do
 done
 
 get-bc "$BINARY" 1> /dev/tty 2>&1
-echo "Executing 'symbiotic$SYMBIOTIC_ARGS --argv='$BINARY_ARGV' $BINARY.bc'" 1> /dev/tty 2>&1
-exec symbiotic $SYMBIOTIC_ARGS --argv="'$BINARY_ARGV'" "$BINARY.bc" 1> /dev/tty 2>&1
+echo "Executing 'symbiotic${SYMBIOTIC_ARGS[*]} --argv='$BINARY_ARGV' $BINARY.bc'" 1> /dev/tty 2>&1
+symbiotic "${SYMBIOTIC_ARGS[@]}" --argv="'$BINARY_ARGV'" "$BINARY.bc" 1> /dev/tty 2>&1
+
+i=1
+while [[ ! "${!i}" =~ "ld-linux" ]]; do
+    ((i++))
+done
+
+ARGS=( "$@" )
+exec "${ARGS[@]:i-1}"
