@@ -55,7 +55,7 @@ echo "Making symbiotic-$VER.tar.xz"
 mv symbiotic "symbiotic-$VER"
 tar -Jcf "symbiotic-$VER.tar.xz" "symbiotic-$VER"
 
-cat > symbiotic.spec << EOF
+cat > $PKG.spec << EOF
 Name:       $PKG
 Version:    $VER
 Release:    1%{?dist}
@@ -124,4 +124,5 @@ EOF
 
 cp ../{symbiotic2cs.py,csexec-symbiotic.sh,{build,hotfix,llvm-{11,dynamic-link}}.patch} .
 
-rpmbuild -bs symbiotic.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"
+# Needed to build the SRPM with correct patches included
+mock --buildsrpm --spec "$PKG.spec" --sources "$PWD" -r fedora-rawhide-x86_64
