@@ -3,14 +3,14 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-506-g630bd29"
+SYMBIOTIC_REV="svcomp19-528-g0db3c4a"
 
 rm -rf srpm
 mkdir srpm
 cd srpm
 
 # clone symbiotic git repo, including its submodules
-git clone --recurse-submodules https://github.com/staticafi/symbiotic.git
+git clone --depth 1 --recurse-submodules https://github.com/staticafi/symbiotic.git
 
 pushd symbiotic > /dev/null
 
@@ -58,29 +58,34 @@ tar -Jcf "symbiotic-$VER.tar.xz" "symbiotic-$VER"
 cat > symbiotic.spec << EOF
 Name:       $PKG
 Version:    $VER
-Release:    5%{?dist}
+Release:    1%{?dist}
 Summary:    Tool for analysis of sequential computer programs written in C
-License:    Free
+License:    MIT
 URL:        https://github.com/staticafi/%{name}
+
 Source0:    %{name}-%{version}.tar.xz
 Source1:    symbiotic2cs.py
 Source2:    csexec-symbiotic.sh
+
 Patch0:     build.patch
 Patch1:     hotfix.patch
+Patch2:     llvm-dynamic-link.patch
+%if 0%{?fedora} > 32
+Patch3:     llvm-11.patch
+%endif
 
-BuildRequires: gcc
-BuildRequires: cmake
-BuildRequires: jsoncpp-devel
-BuildRequires: llvm-devel
-BuildRequires: llvm-static
+BuildRequires: gcc-c++
 BuildRequires: clang
+BuildRequires: cmake
 BuildRequires: glibc-devel
 BuildRequires: glibc-devel(x86-32)
+BuildRequires: jsoncpp-devel
+BuildRequires: llvm-devel
 BuildRequires: ncurses-devel
 BuildRequires: python3
 BuildRequires: sqlite-devel
 BuildRequires: z3-devel
-BuildRequires: zlib-static
+BuildRequires: zlib-devel
 
 Requires: clang
 Requires: llvm
@@ -117,6 +122,6 @@ ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}%{_bindir}/symbiotic
 %{_bindir}/csexec-symbiotic
 EOF
 
-cp ../{symbiotic2cs.py,csexec-symbiotic.sh,build.patch,hotfix.patch} .
+cp ../{symbiotic2cs.py,csexec-symbiotic.sh,{build,hotfix,llvm-{11,dynamic-link}}.patch} .
 
 rpmbuild -bs symbiotic.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"

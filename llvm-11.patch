@@ -1,0 +1,1189 @@
+# dg
+From 14486249c3242d78676e274bfac15a1bfc3311fe Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Mon, 17 Aug 2020 15:27:01 +0200
+Subject: [PATCH 2/5] llvm11: Make Conversions from StringRef to std::string
+ explicit
+
+Introduced in:
+https://github.com/llvm/llvm-project/commit/777180a32#diff-497ba4c0c527a125d382b51a34f32542
+---
+ dg/lib/llvm/PointerAnalysis/Calls.cpp             | 2 +-
+ dg/lib/llvm/PointerAnalysis/PointerGraph.cpp      | 2 +-
+ 5 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/dg/lib/llvm/PointerAnalysis/Calls.cpp b/dg/lib/llvm/PointerAnalysis/Calls.cpp
+index 5d3b6a84..4caaf622 100644
+--- a/dg/lib/llvm/PointerAnalysis/Calls.cpp
++++ b/dg/lib/llvm/PointerAnalysis/Calls.cpp
+@@ -56,7 +56,7 @@ LLVMPointerGraphBuilder::createFunctionCall(const llvm::CallInst *CInst, const l
+     // 'malloc' etc.
+     if (func->size() == 0) {
+         /// memory allocation (malloc, calloc, etc.)
+-        auto type =_options.getAllocationFunction(func->getName());
++        auto type =_options.getAllocationFunction(func->getName().str());
+         if (type != AllocationFunction::NONE) {
+             return createDynamicMemAlloc(CInst, type);
+         } else if (func->isIntrinsic()) {
+diff --git a/dg/lib/llvm/PointerAnalysis/PointerGraph.cpp b/dg/lib/llvm/PointerAnalysis/PointerGraph.cpp
+index ab15f313..07ac4163 100644
+--- a/dg/lib/llvm/PointerAnalysis/PointerGraph.cpp
++++ b/dg/lib/llvm/PointerAnalysis/PointerGraph.cpp
+@@ -296,7 +296,7 @@ static bool isRelevantCall(const llvm::Instruction *Inst, bool invalidate_nodes,
+         return true;
+ 
+     if (func->size() == 0) {
+-        if (opts.getAllocationFunction(func->getName())
++        if (opts.getAllocationFunction(func->getName().str())
+             != AllocationFunction::NONE)
+             // we need memory allocations
+             return true;
+diff --git a/dg/lib/llvm/ThreadRegions/sources/Graphs/GraphBuilder.cpp b/lib/llvm/ThreadRegions/source/Graphs/GraphBuilder.cpp
+index 39fbf5d2..d2b33d4c 100644
+--- a/dg/lib/llvm/ThreadRegions/sources/Graphs/GraphBuilder.cpp
++++ b/dg/lib/llvm/ThreadRegions/sources/Graphs/GraphBuilder.cpp
+@@ -386,7 +386,7 @@ GraphBuilder::NodeSequence GraphBuilder::buildGeneralCallInstruction(const CallI
+ }
+
+ GraphBuilder::NodeSequence GraphBuilder::insertUndefinedFunction(const Function *function, const CallInst *callInstruction) {
+-    std::string funcName = function->getName();
++    std::string funcName = function->getName().str();
+
+     if (funcName == "pthread_create") {
+         return insertPthreadCreate(callInstruction);
+diff --git a/dg/lib/llvm/ReadWriteGraph/LLVMReadWriteGraphBuilder.cpp b/dg/lib/llvm/ReadWriteGraph/LLVMReadWriteGraphBuilder.cpp
+index ee9f93e7..4ba8b721 100644
+--- a/dg/lib/llvm/ReadWriteGraph/LLVMReadWriteGraphBuilder.cpp
++++ b/dg/lib/llvm/ReadWriteGraph/LLVMReadWriteGraphBuilder.cpp
+@@ -254,7 +254,7 @@ RWNode *LLVMReadWriteGraphBuilder::getOperand(const llvm::Value *val)
+         } else if (auto CI = llvm::dyn_cast<llvm::CallInst>(val)) {
+             const auto calledVal = CI->getCalledValue()->stripPointerCasts();
+             const auto func = llvm::dyn_cast<llvm::Function>(calledVal);
+-            if (_options.isAllocationFunction(func->getName())) {
++            if (_options.isAllocationFunction(func->getName().str())) {
+                 auto call = createCall(CI);
+                 assert(call.first == call.second);
+                 assert(call.first->getType() == RWNodeType::DYN_ALLOC);
+@@ -351,10 +351,10 @@ static bool isRelevantCall(const llvm::Instruction *Inst,
+ 
+     if (func->size() == 0) {
+         // we have a model for this function
+-        if (opts.getFunctionModel(func->getName()))
++        if (opts.getFunctionModel(func->getName().str()))
+             return true;
+         // memory allocation
+-        if (opts.isAllocationFunction(func->getName()))
++        if (opts.isAllocationFunction(func->getName().str()))
+             return true;
+ 
+         if (func->isIntrinsic()) {
+@@ -521,7 +521,7 @@ LLVMReadWriteGraphBuilder::createCallToFunction(const llvm::Function *F,
+     assert(nodes_map.find(CInst) == nodes_map.end()
+             && "Already created this function");
+
+-    if (auto model = _options.getFunctionModel(F->getName())) {
++    if (auto model = _options.getFunctionModel(F->getName().str())) {
+         auto node = funcFromModel(model, CInst);
+         addNode(CInst, node);
+         return {node, node};
+@@ -570,7 +570,7 @@ LLVMReadWriteGraphBuilder::createCallToFunctions(const std::vector<const llvm::F
+         }
+
+         RWNode *onenode = nullptr;
+-        if (auto model = _options.getFunctionModel(F->getName())) {
++        if (auto model = _options.getFunctionModel(F->getName().str())) {
+             onenode = funcFromModel(model, CInst);
+             addNode(CInst, onenode);
+         } else if (F->size() == 0) {
+@@ -994,7 +994,7 @@ LLVMReadWriteGraphBuilder::createCallToZeroSizeFunction(const llvm::Function *fu
+         }
+     }
+ 
+-    auto type = _options.getAllocationFunction(function->getName());
++    auto type = _options.getAllocationFunction(function->getName().str());
+     if (type != AllocationFunction::NONE) {
+         if (type == AllocationFunction::REALLOC)
+             return createRealloc(CInst);
+-- 
+2.26.2
+
+
+From dfbeec8b1146807364f0f06507cf8893a6eeb110 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Mon, 17 Aug 2020 15:37:58 +0200
+Subject: [PATCH 3/5] llvm11: PTA/Structure.cpp: Replace const_succ_iterator
+ with auto
+
+succ_const_iterator has been renamed to const_succ_iterator in LLVM 11
+and this change adds support for both options:
+https://reviews.llvm.org/D75952
+---
+ dg/lib/llvm/PointerAnalysis/Structure.cpp | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/dg/lib/llvm/PointerAnalysis/Structure.cpp b/dg/lib/llvm/PointerAnalysis/Structure.cpp
+index 201dad08..4f7bd5fd 100644
+--- a/dg/lib/llvm/PointerAnalysis/Structure.cpp
++++ b/dg/lib/llvm/PointerAnalysis/Structure.cpp
+@@ -44,9 +44,7 @@ void LLVMPointerGraphBuilder::FuncGraph::blockAddSuccessors(std::set<const llvm:
+                                                             LLVMPointerGraphBuilder::PSNodesBlock& blk,
+                                                             const llvm::BasicBlock& block) {
+ 
+-    for (llvm::succ_const_iterator
+-         S = llvm::succ_begin(&block), SE = llvm::succ_end(&block); S != SE; ++S) {
+-
++    for (auto S = llvm::succ_begin(&block), SE = llvm::succ_end(&block); S != SE; ++S) {
+          // we already processed this block? Then don't try to add the edges again
+          if (!found_blocks.insert(*S).second)
+             continue;
+-- 
+2.26.2
+
+
+From fbf72fb8d89c8f6437d22ae3b9fcf2cc5eb75649 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Mon, 17 Aug 2020 15:54:18 +0200
+Subject: [PATCH 4/5] llvm11: PTA/Instructions.cpp: Composite and Sequential
+ types were removed in LLVM 11
+
+See:
+https://reviews.llvm.org/D75660
+https://reviews.llvm.org/D75661
+---
+ dg/lib/llvm/PointerAnalysis/Instructions.cpp | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/dg/lib/llvm/PointerAnalysis/Instructions.cpp b/dg/lib/llvm/PointerAnalysis/Instructions.cpp
+index 6f5a4fb7..53f69a42 100644
+--- a/dg/lib/llvm/PointerAnalysis/Instructions.cpp
++++ b/dg/lib/llvm/PointerAnalysis/Instructions.cpp
+@@ -103,9 +103,13 @@ LLVMPointerGraphBuilder::createSelect(const llvm::Instruction *Inst) {
+ Offset accumulateEVOffsets(const llvm::ExtractValueInst *EV,
+                            const llvm::DataLayout& DL) {
+     Offset off{0};
++#if LLVM_VERSION_MAJOR >= 11
++    llvm::Type *type = EV->getAggregateOperand()->getType();
++#else
+     llvm::CompositeType *type
+         = llvm::dyn_cast<llvm::CompositeType>(EV->getAggregateOperand()->getType());
+     assert(type && "Don't have composite type in extractvalue");
++#endif
+ 
+     for (unsigned idx : EV->getIndices()) {
+         assert(type->indexValid(idx) && "Invalid index");
+@@ -114,12 +118,19 @@ Offset accumulateEVOffsets(const llvm::ExtractValueInst *EV,
+             off += SL->getElementOffset(idx);
+         } else {
+             // array or vector, so just move in the array
+-            auto seqTy = llvm::cast<llvm::SequentialType>(type);
+-            off += idx + DL.getTypeAllocSize(seqTy->getElementType());
++            if (auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(type))
++                off += idx + DL.getTypeAllocSize(arrTy->getElementType());
++            else {
++                auto *vecTy = llvm::cast<llvm::VectorType>(type);
++                off += idx + DL.getTypeAllocSize(vecTy->getElementType());
++            }
+         }
+ 
+-        type = llvm::dyn_cast<llvm::CompositeType>(type->getTypeAtIndex(idx));
+-        if (!type)
++#if LLVM_VERSION_MAJOR >= 11
++        if (!llvm::GetElementPtrInst::getTypeAtIndex(type, idx))
++#else
++        if (!llvm::dyn_cast<llvm::CompositeType>(type->getTypeAtIndex(idx)))
++#endif
+             break; // we're done
+     }
+ 
+-- 
+2.26.2
+
+
+From 860f124c2958fe76de49dbd88d6b227789961b37 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Thu, 3 Sep 2020 13:37:59 +0200
+Subject: [PATCH 5/5] llvm11: Explicitly check index validity
+
+The indexValid method has been removed:
+https://reviews.llvm.org/D75660
+---
+ dg/lib/llvm/PointerAnalysis/Instructions.cpp | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/dg/lib/llvm/PointerAnalysis/Instructions.cpp b/dg/lib/llvm/PointerAnalysis/Instructions.cpp
+index 53f69a42..77832105 100644
+--- a/dg/lib/llvm/PointerAnalysis/Instructions.cpp
++++ b/dg/lib/llvm/PointerAnalysis/Instructions.cpp
+@@ -112,16 +112,18 @@ Offset accumulateEVOffsets(const llvm::ExtractValueInst *EV,
+ #endif
+ 
+     for (unsigned idx : EV->getIndices()) {
+-        assert(type->indexValid(idx) && "Invalid index");
+         if (llvm::StructType *STy = llvm::dyn_cast<llvm::StructType>(type)) {
++            assert(STy->indexValid(idx) && "Invalid index");
+             const llvm::StructLayout *SL = DL.getStructLayout(STy);
+             off += SL->getElementOffset(idx);
+         } else {
+             // array or vector, so just move in the array
+-            if (auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(type))
++            if (auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(type)) {
++                assert(idx < arrTy->getNumElements() && "Invalid index");
+                 off += idx + DL.getTypeAllocSize(arrTy->getElementType());
+-            else {
++            } else {
+                 auto *vecTy = llvm::cast<llvm::VectorType>(type);
++                assert(idx < vecTy->getNumElements() && "Invalid index");
+                 off += idx + DL.getTypeAllocSize(vecTy->getElementType());
+             }
+         }
+-- 
+2.26.2
+
+diff --git a/dg/lib/llvm/ControlDependence/GraphBuilder.cpp b/dg/lib/llvm/ControlDependence/GraphBuilder.cpp
+index ef853ac0..18393661 100644
+--- a/dg/lib/llvm/ControlDependence/GraphBuilder.cpp
++++ b/dg/lib/llvm/ControlDependence/GraphBuilder.cpp
+@@ -178,7 +178,7 @@ void GraphBuilder::dump(std::ostream &ostream) const {
+ 
+ void GraphBuilder::handleCallInstruction(const llvm::Instruction *instruction, Block *lastBlock, bool &createBlock, bool &createCallReturn) {
+     auto * callInst = llvm::dyn_cast<llvm::CallInst>(instruction);
+-    auto llvmFunctions = getCalledFunctions(callInst->getCalledValue(),
++    auto llvmFunctions = getCalledFunctions(callInst->getCalledOperand(),
+                                             pointsToAnalysis_);
+ 
+     for (auto llvmFunction : llvmFunctions) {
+diff --git a/dg/lib/llvm/ForkJoin/ForkJoin.cpp b/lib/llvm/ForkJoin/ForkJoin.cpp
+index 9b71f9f9..8272852b 100644
+--- a/dg/lib/llvm/ForkJoin/ForkJoin.cpp
++++ b/dg/lib/llvm/ForkJoin/ForkJoin.cpp
+@@ -28,7 +28,7 @@ ForkJoinAnalysis::matchJoin(const llvm::Value *joinVal) {
+     return threads;
+ 
+ 
+-   //const auto calledVal = joinCall->getCalledValue();
++   //const auto calledVal = joinCall->getCalledOperand();
+    //if (const auto joinF = dyn_cast<Function>(calledVal)) {
+    //    assert(joinF->getName().equals("pthread_join")
+    //            && "Invalid function taken as pthread join");
+diff --git a/dg/lib/llvm/LLVMDependenceGraph.cpp b/dg/lib/llvm/LLVMDependenceGraph.cpp
+index 92b1c71b..332412cd 100644
+--- a/dg/lib/llvm/LLVMDependenceGraph.cpp
++++ b/dg/lib/llvm/LLVMDependenceGraph.cpp
+@@ -434,7 +434,7 @@ void LLVMDependenceGraph::handleInstruction(llvm::Value *val,
+     using namespace llvm;
+ 
+     if (CallInst *CInst = dyn_cast<CallInst>(val)) {
+-        Value *strippedValue = CInst->getCalledValue()->stripPointerCasts();
++        Value *strippedValue = CInst->getCalledOperand()->stripPointerCasts();
+         Function *func = dyn_cast<Function>(strippedValue);
+         // if func is nullptr, then this is indirect call
+         // via function pointer. If we have the points-to information,
+@@ -847,7 +847,7 @@ static bool match_callsite_name(LLVMNode *callNode, const char *names[])
+     // but is not called via function pointer
+     if (!callNode->hasSubgraphs()) {
+         const CallInst *callInst = cast<CallInst>(callNode->getValue());
+-        const Value *calledValue = callInst->getCalledValue();
++        const Value *calledValue = callInst->getCalledOperand();
+         const Function *func = dyn_cast<Function>(calledValue->stripPointerCasts());
+         // in the case we haven't run points-to analysis
+         if (!func)
+@@ -882,7 +882,7 @@ static bool match_callsite_name(LLVMNode *callNode, const std::vector<std::strin
+     // but is not called via function pointer
+     if (!callNode->hasSubgraphs()) {
+         const CallInst *callInst = cast<CallInst>(callNode->getValue());
+-        const Value *calledValue = callInst->getCalledValue();
++        const Value *calledValue = callInst->getCalledOperand();
+         const Function *func = dyn_cast<Function>(calledValue->stripPointerCasts());
+         // in the case we haven't run points-to analysis
+         if (!func)
+diff --git a/dg/lib/llvm/LLVMNode.cpp b/dg/lib/llvm/LLVMNode.cpp
+index d7ca0381..46c25d5a 100644
+--- a/dg/lib/llvm/LLVMNode.cpp
++++ b/dg/lib/llvm/LLVMNode.cpp
+@@ -162,7 +162,7 @@ void LLVMNode::addActualParameters(LLVMDependenceGraph *funcGraph)
+ 
+     // do not add redundant nodes
+     Function *func
+-        = dyn_cast<Function>(CInst->getCalledValue()->stripPointerCasts());
++        = dyn_cast<Function>(CInst->getCalledOperand()->stripPointerCasts());
+     if (!func || func->size() == 0)
+         return;
+ 
+diff --git a/dg/lib/llvm/PointerAnalysis/Calls.cpp b/dg/lib/llvm/PointerAnalysis/Calls.cpp
+index 09c49496..1b7222d0 100644
+--- a/dg/lib/llvm/PointerAnalysis/Calls.cpp
++++ b/dg/lib/llvm/PointerAnalysis/Calls.cpp
+@@ -12,7 +12,7 @@ LLVMPointerGraphBuilder::createCall(const llvm::Instruction *Inst) {
+     using namespace llvm;
+ 
+     const CallInst *CInst = cast<CallInst>(Inst);
+-    const Value *calledVal = CInst->getCalledValue()->stripPointerCasts();
++    const Value *calledVal = CInst->getCalledOperand()->stripPointerCasts();
+ 
+     if (CInst->isInlineAsm()) {
+         return createAsm(Inst);
+diff --git a/dg/lib/llvm/PointerAnalysis/PointerGraph.cpp b/dg/lib/llvm/PointerAnalysis/PointerGraph.cpp
+index f1645672..604386c6 100644
+--- a/dg/lib/llvm/PointerAnalysis/PointerGraph.cpp
++++ b/dg/lib/llvm/PointerAnalysis/PointerGraph.cpp
+@@ -284,7 +284,7 @@ static bool isRelevantCall(const llvm::Instruction *Inst, bool invalidate_nodes,
+         return false;
+ 
+     const CallInst *CInst = cast<CallInst>(Inst);
+-    const Value *calledVal = CInst->getCalledValue()->stripPointerCasts();
++    const Value *calledVal = CInst->getCalledOperand()->stripPointerCasts();
+     const Function *func = dyn_cast<Function>(calledVal);
+ 
+     if (!func)
+diff --git a/dg/lib/llvm/ReadWriteGraph/LLVMReadWriteGraphBuilder.cpp b/dg/lib/llvm/ReadWriteGraph/LLVMReadWriteGraphBuilder.cpp
+index 99ca1552..7478846a 100644
+--- a/dg/lib/llvm/ReadWriteGraph/LLVMReadWriteGraphBuilder.cpp
++++ b/dg/lib/llvm/ReadWriteGraph/LLVMReadWriteGraphBuilder.cpp
+@@ -252,7 +252,7 @@ RWNode *LLVMReadWriteGraphBuilder::getOperand(const llvm::Value *val)
+         if (auto I = llvm::dyn_cast<llvm::AllocaInst>(val)) {
+             op = createAlloc(I);
+         } else if (auto CI = llvm::dyn_cast<llvm::CallInst>(val)) {
+-            const auto calledVal = CI->getCalledValue()->stripPointerCasts();
++            const auto calledVal = CI->getCalledOperand()->stripPointerCasts();
+             const auto func = llvm::dyn_cast<llvm::Function>(calledVal);
+             if (_options.isAllocationFunction(func->getName().str())) {
+                 auto call = createCall(CI);
+@@ -342,7 +342,7 @@ static bool isRelevantCall(const llvm::Instruction *Inst,
+         return false;
+ 
+     const CallInst *CInst = cast<CallInst>(Inst);
+-    const Value *calledVal = CInst->getCalledValue()->stripPointerCasts();
++    const Value *calledVal = CInst->getCalledOperand()->stripPointerCasts();
+     const Function *func = dyn_cast<Function>(calledVal);
+ 
+     if (!func)
+@@ -949,7 +949,7 @@ LLVMReadWriteGraphBuilder::createCall(const llvm::Instruction *Inst)
+ {
+     using namespace llvm;
+     const CallInst *CInst = cast<CallInst>(Inst);
+-    const Value *calledVal = CInst->getCalledValue()->stripPointerCasts();
++    const Value *calledVal = CInst->getCalledOperand()->stripPointerCasts();
+     static bool warned_inline_assembly = false;
+ 
+     if (CInst->isInlineAsm()) {
+diff --git a/dg/lib/llvm/ThreadRegions/sources/Graphs/GraphBuilder.cpp b/dg/lib/llvm/ThreadRegions/sources/Graphs/GraphBuilder.cpp
+index a3af3af1..5e6230bc 100644
+--- a/dg/lib/llvm/ThreadRegions/sources/Graphs/GraphBuilder.cpp
++++ b/dg/lib/llvm/ThreadRegions/sources/Graphs/GraphBuilder.cpp
+@@ -483,7 +483,7 @@ GraphBuilder::NodeSequence GraphBuilder::insertFunction(const Function *function
+ }
+ 
+ GraphBuilder::NodeSequence GraphBuilder::insertFunctionPointerCall(const CallInst *callInstruction) {
+-    auto calledValue = callInstruction->getCalledValue();
++    auto calledValue = callInstruction->getCalledOperand();
+     auto functions = getCalledFunctions(calledValue, pointsToAnalysis_);
+ 
+     auto callFuncPtrNode = addNode(createNode<NodeType::CALL_FUNCPTR>(callInstruction));
+diff --git a/dg/tests/thread-regions-test.cpp b/dg/tests/thread-regions-test.cpp
+index 5ad24bb1..70cf3349 100644
+--- a/dg/tests/thread-regions-test.cpp
++++ b/dg/tests/thread-regions-test.cpp
+@@ -485,7 +485,7 @@ TEST_CASE("GraphBuilder build tests", "[GraphBuilder]") {
+             for (auto & instruction : block) {
+                 if (isa<llvm::CallInst>(instruction)) {
+                     auto callInst = dyn_cast<llvm::CallInst>(&instruction);
+-                    auto calledValue = callInst->getCalledValue();
++                    auto calledValue = callInst->getCalledOperand();
+                     if (isa<llvm::Function>(calledValue)) {
+                         auto function = dyn_cast<llvm::Function>(calledValue);
+                         if (function->getName().equals("pthread_exit")) {
+@@ -523,7 +523,7 @@ TEST_CASE("GraphBuilder build tests", "[GraphBuilder]") {
+ 
+         for (auto instruction : callInstruction) {
+             auto callInst = dyn_cast<llvm::CallInst>(instruction);
+-            auto calledValue = callInst->getCalledValue();
++            auto calledValue = callInst->getCalledOperand();
+             if (!isa<llvm::Function>(calledValue)) {
+                 funcPtrCall = callInst;
+             }
+diff --git a/dg/tools/llvm-slicer-crit.cpp b/dg/tools/llvm-slicer-crit.cpp
+index 334bb0d9..9e893594 100644
+--- a/dg/tools/llvm-slicer-crit.cpp
++++ b/dg/tools/llvm-slicer-crit.cpp
+@@ -303,7 +303,7 @@ static bool isCallTo(LLVMNode *callNode, const std::set<std::string>& names)
+     // but is not called via function pointer
+     if (!callNode->hasSubgraphs()) {
+         const CallInst *callInst = cast<CallInst>(callNode->getValue());
+-        const Value *calledValue = callInst->getCalledValue();
++        const Value *calledValue = callInst->getCalledOperand();
+         const Function *func = dyn_cast<Function>(calledValue->stripPointerCasts());
+         // in the case we haven't run points-to analysis
+         if (!func)
+
+# KLEE
+diff --git a/klee/include/klee/Internal/Support/ModuleUtil.h b/klee/include/klee/Internal/Support/ModuleUtil.h
+index e80fc673..a6c320ba 100644
+--- a/klee/include/klee/Internal/Support/ModuleUtil.h
++++ b/klee/include/klee/Internal/Support/ModuleUtil.h
+@@ -12,7 +12,7 @@
+ 
+ #include "klee/Config/Version.h"
+ 
+-#include "llvm/IR/CallSite.h"
++#include "llvm/IR/InstrTypes.h"
+ #include "llvm/IR/Module.h"
+ 
+ #include <memory>
+@@ -43,7 +43,7 @@ linkModules(std::vector<std::unique_ptr<llvm::Module>> &modules,
+ /// If `moduleIsFullyLinked` is set to true it will be assumed that the
+ ///  module containing the `llvm::CallSite` is fully linked. This assumption
+ ///  allows resolution of functions that are marked as overridable.
+-llvm::Function *getDirectCallTarget(llvm::CallSite, bool moduleIsFullyLinked);
++llvm::Function *getDirectCallTarget(const llvm::CallBase&, bool moduleIsFullyLinked);
+ 
+ /// Return true iff the given Function value is used in something
+ /// other than a direct call (or a constant expression that
+diff --git a/klee/include/klee/util/GetElementPtrTypeIterator.h b/klee/include/klee/util/GetElementPtrTypeIterator.h
+index cdbc36bc..21be7ee7 100644
+--- a/klee/include/klee/util/GetElementPtrTypeIterator.h
++++ b/klee/include/klee/util/GetElementPtrTypeIterator.h
+@@ -65,8 +65,7 @@ class generic_gep_type_iterator
+     llvm::Type *operator*() const { return CurTy; }
+ 
+     llvm::Type *getIndexedType() const {
+-      llvm::CompositeType *CT = cast<llvm::CompositeType>(CurTy);
+-      return CT->getTypeAtIndex(getOperand());
++      return llvm::GetElementPtrInst::getTypeAtIndex(CurTy, getOperand());
+     }
+ 
+     // This is a non-standard operator->.  It allows you to call methods on the
+@@ -76,10 +75,12 @@ class generic_gep_type_iterator
+     llvm::Value *getOperand() const { return asValue(*OpIt); }
+ 
+     generic_gep_type_iterator& operator++() {   // Preincrement
+-      if (llvm::CompositeType *CT = dyn_cast<llvm::CompositeType>(CurTy)) {
+-        CurTy = CT->getTypeAtIndex(getOperand());
++      if (llvm::isa<llvm::StructType>(CurTy) ||
++          llvm::isa<llvm::ArrayType>(CurTy) ||
++          llvm::isa<llvm::VectorType>(CurTy)) {
++        CurTy = llvm::GetElementPtrInst::getTypeAtIndex(CurTy, getOperand());
+ #if LLVM_VERSION_CODE >= LLVM_VERSION(4, 0)
+-      } else if (auto ptr = dyn_cast<llvm::PointerType>(CurTy)) {
++      } else if (auto ptr = llvm::dyn_cast<llvm::PointerType>(CurTy)) {
+         CurTy = ptr->getElementType();
+ #endif
+       } else {
+diff --git a/klee/lib/Core/Executor.cpp b/klee/lib/Core/Executor.cpp
+index 3748fdbf..4f6de3a7 100644
+--- a/klee/lib/Core/Executor.cpp
++++ b/klee/lib/Core/Executor.cpp
+@@ -55,7 +55,6 @@
+ #include "llvm/ADT/StringExtras.h"
+ #include "llvm/IR/Attributes.h"
+ #include "llvm/IR/BasicBlock.h"
+-#include "llvm/IR/CallSite.h"
+ #include "llvm/IR/Constants.h"
+ #include "llvm/IR/DataLayout.h"
+ #include "llvm/IR/Function.h"
+@@ -533,7 +532,7 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
+   SmallString<128> LibPath(opts.LibraryDir);
+   llvm::sys::path::append(LibPath, "libkleeRuntimeIntrinsic.bca");
+   std::string error;
+-  if (!klee::loadFile(LibPath.str(), modules[0]->getContext(), modules,
++  if (!klee::loadFile(LibPath.c_str(), modules[0]->getContext(), modules,
+                       error)) {
+     klee_error("Could not load KLEE intrinsic file %s", LibPath.c_str());
+   }
+@@ -672,7 +671,7 @@ void Executor::initializeGlobals(ExecutionState &state) {
+     // not defined in this module; if it isn't resolvable then it
+     // should be null.
+     if (f->hasExternalWeakLinkage() && 
+-        !externalDispatcher->resolveSymbol(f->getName())) {
++        !externalDispatcher->resolveSymbol(f->getName().str())) {
+         // insert nullptr
+         globalAddresses.emplace(f, KValue(Expr::createPointer(0)));
+     } else {
+@@ -770,7 +769,7 @@ void Executor::initializeGlobals(ExecutionState &state) {
+         if (i->getName() == "__dso_handle") {
+           addr = &__dso_handle; // wtf ?
+         } else {
+-          addr = externalDispatcher->resolveSymbol(i->getName());
++          addr = externalDispatcher->resolveSymbol(i->getName().str());
+         }
+         if (!addr)
+           klee_error("unable to load symbol(%s) while initializing globals.", 
+@@ -1803,8 +1802,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
+           Expr::Width to = getWidthForLLVMType(t);
+             
+           if (from != to) {
+-            CallSite cs = (isa<InvokeInst>(caller) ? CallSite(cast<InvokeInst>(caller)) : 
+-                           CallSite(cast<CallInst>(caller)));
++            CallBase &cs = cast<CallBase>(*caller);
+ 
+             // XXX need to check other param attrs ?
+ #if LLVM_VERSION_CODE >= LLVM_VERSION(5, 0)
+@@ -2064,10 +2062,10 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
+     // Ignore debug intrinsic calls
+     if (isa<DbgInfoIntrinsic>(i))
+       break;
+-    CallSite cs(i);
++    CallBase &cs = cast<CallBase>(*i);
+ 
+     unsigned numArgs = cs.arg_size();
+-    Value *fp = cs.getCalledValue();
++    Value *fp = cs.getCalledOperand();
+     Function *f = getTargetFunction(fp, state);
+ 
+     if (isa<InlineAsm>(fp)) {
+@@ -2848,7 +2846,21 @@ void Executor::computeOffsets(KGEPInstruction *kgepi, TypeIt ib, TypeIt ie) {
+       uint64_t addend = sl->getElementOffset((unsigned) ci->getZExtValue());
+       constantOffset = constantOffset->Add(ConstantExpr::alloc(addend,
+                                                                Context::get().getPointerWidth()));
+-    } else if (const auto set = dyn_cast<SequentialType>(*ii)) {
++    } else if (const auto set = dyn_cast<ArrayType>(*ii)) {
++      uint64_t elementSize = 
++        kmodule->targetData->getTypeStoreSize(set->getElementType());
++      Value *operand = ii.getOperand();
++      if (Constant *c = dyn_cast<Constant>(operand)) {
++        ref<ConstantExpr> index = 
++          cast<ConstantExpr>(evalConstant(c).getValue())->SExt(Context::get().getPointerWidth());
++        ref<ConstantExpr> addend = 
++          index->Mul(ConstantExpr::alloc(elementSize,
++                                         Context::get().getPointerWidth()));
++        constantOffset = constantOffset->Add(addend);
++      } else {
++        kgepi->indices.push_back(std::make_pair(index, elementSize));
++      }
++    } else if (const auto set = dyn_cast<VectorType>(*ii)) {
+       uint64_t elementSize = 
+         kmodule->targetData->getTypeStoreSize(set->getElementType());
+       Value *operand = ii.getOperand();
+@@ -3559,13 +3571,13 @@ void Executor::callExternalFunction(ExecutionState &state,
+     return;
+ 
+   if (ExternalCalls == ExternalCallPolicy::Pure &&
+-      nokExternals.count(function->getName()) > 0) {
++      nokExternals.count(function->getName().str()) > 0) {
+     terminateStateOnError(state, "failed external call", User);
+     return;
+   }
+ 
+   if (ExternalCalls == ExternalCallPolicy::None
+-      && !okExternals.count(function->getName())) {
++      && !okExternals.count(function->getName().str())) {
+     klee_warning("Disallowed call to external function: %s\n",
+                function->getName().str().c_str());
+     terminateStateOnError(state, "external calls disallowed", User);
+@@ -3573,7 +3585,7 @@ void Executor::callExternalFunction(ExecutionState &state,
+   }
+ 
+   if (ExternalCalls == ExternalCallPolicy::Pure
+-      && !okExternals.count(function->getName())) {
++      && !okExternals.count(function->getName().str())) {
+ 
+     auto retTy = function->getReturnType();
+     if (retTy->isVoidTy()) {
+@@ -4553,33 +4565,30 @@ size_t Executor::getAllocationAlignment(const llvm::Value *allocSite) const {
+   size_t alignment = 0;
+   llvm::Type *type = NULL;
+   std::string allocationSiteName(allocSite->getName().str());
+-  if (const GlobalValue *GV = dyn_cast<GlobalValue>(allocSite)) {
+-    alignment = GV->getAlignment();
+-    if (const GlobalVariable *globalVar = dyn_cast<GlobalVariable>(GV)) {
++  if (const GlobalObject *GO = dyn_cast<GlobalObject>(allocSite)) {
++    alignment = GO->getAlignment();
++    if (const GlobalVariable *globalVar = dyn_cast<GlobalVariable>(GO)) {
+       // All GlobalVariables's have pointer type
+       llvm::PointerType *ptrType =
+           dyn_cast<llvm::PointerType>(globalVar->getType());
+       assert(ptrType && "globalVar's type is not a pointer");
+       type = ptrType->getElementType();
+     } else {
+-      type = GV->getType();
++      type = GO->getType();
+     }
+   } else if (const AllocaInst *AI = dyn_cast<AllocaInst>(allocSite)) {
+     alignment = AI->getAlignment();
+     type = AI->getAllocatedType();
+   } else if (isa<InvokeInst>(allocSite) || isa<CallInst>(allocSite)) {
+     // FIXME: Model the semantics of the call to use the right alignment
+-    llvm::Value *allocSiteNonConst = const_cast<llvm::Value *>(allocSite);
+-    const CallSite cs = (isa<InvokeInst>(allocSiteNonConst)
+-                             ? CallSite(cast<InvokeInst>(allocSiteNonConst))
+-                             : CallSite(cast<CallInst>(allocSiteNonConst)));
++    const CallBase &cs = cast<CallBase>(*allocSite);
+     llvm::Function *fn =
+         klee::getDirectCallTarget(cs, /*moduleIsFullyLinked=*/true);
+     if (fn)
+       allocationSiteName = fn->getName().str();
+ 
+     if (allocationSiteName.compare(0, 17, "__VERIFIER_nondet") == 0) {
+-        type = cast<CallInst>(cs.getInstruction())->getType();
++        type = cast<CallInst>(allocSite)->getType();
+         alignment = 0;
+     } else {
+       klee_warning_once(fn != NULL ? fn : allocSite,
+diff --git a/klee/lib/Core/ExternalDispatcher.cpp b/klee/lib/Core/ExternalDispatcher.cpp
+index 2b537b7d..dc1fb0ad 100644
+--- a/klee/lib/Core/ExternalDispatcher.cpp
++++ b/klee/lib/Core/ExternalDispatcher.cpp
+@@ -10,7 +10,6 @@
+ #include "ExternalDispatcher.h"
+ #include "klee/Config/Version.h"
+ 
+-#include "llvm/IR/CallSite.h"
+ #include "llvm/IR/Constants.h"
+ #include "llvm/IR/DerivedTypes.h"
+ #include "llvm/IR/IRBuilder.h"
+@@ -196,7 +195,7 @@ bool ExternalDispatcherImpl::executeCall(Function *f, Instruction *i,
+         std::move(dispatchModuleUniq)); // MCJIT takes ownership
+     // Force code generation
+     uint64_t fnAddr =
+-        executionEngine->getFunctionAddress(dispatcher->getName());
++        executionEngine->getFunctionAddress(dispatcher->getName().str());
+     executionEngine->finalizeObject();
+     assert(fnAddr && "failed to get function address");
+     (void)fnAddr;
+@@ -253,16 +252,10 @@ bool ExternalDispatcherImpl::runProtectedCall(Function *f, uint64_t *args) {
+ Function *ExternalDispatcherImpl::createDispatcher(Function *target,
+                                                    Instruction *inst,
+                                                    Module *module) {
+-  if (!resolveSymbol(target->getName()))
++  if (!resolveSymbol(target->getName().str()))
+     return 0;
+ 
+-  CallSite cs;
+-  if (inst->getOpcode() == Instruction::Call) {
+-    cs = CallSite(cast<CallInst>(inst));
+-  } else {
+-    cs = CallSite(cast<InvokeInst>(inst));
+-  }
+-
++  CallBase &cs = cast<CallBase>(*inst);
+   Value **args = new Value *[cs.arg_size()];
+ 
+   std::vector<Type *> nullary;
+@@ -292,8 +285,7 @@ Function *ExternalDispatcherImpl::createDispatcher(Function *target,
+ 
+   // Each argument will be passed by writing it into gTheArgsP[i].
+   unsigned i = 0, idx = 2;
+-  for (CallSite::arg_iterator ai = cs.arg_begin(), ae = cs.arg_end(); ai != ae;
+-       ++ai, ++i) {
++  for (auto ai = cs.arg_begin(), ae = cs.arg_end(); ai != ae; ++ai, ++i) {
+     // Determine the type the argument will be passed as. This accommodates for
+     // the corresponding code in Executor.cpp for handling calls to bitcasted
+     // functions.
+diff --git a/klee/lib/Core/Searcher.cpp b/klee/lib/Core/Searcher.cpp
+index 0d5d61e2..385f285f 100644
+--- a/klee/lib/Core/Searcher.cpp
++++ b/klee/lib/Core/Searcher.cpp
+@@ -25,7 +25,6 @@
+ #include "klee/Internal/Support/ModuleUtil.h"
+ #include "klee/Internal/System/Time.h"
+ #include "klee/Internal/Support/ErrorHandling.h"
+-#include "llvm/IR/CallSite.h"
+ #include "llvm/IR/Constants.h"
+ #include "llvm/IR/Instructions.h"
+ #include "llvm/IR/Module.h"
+diff --git a/klee/lib/Core/StatsTracker.cpp b/klee/lib/Core/StatsTracker.cpp
+index 95305658..8a10dccb 100644
+--- a/klee/lib/Core/StatsTracker.cpp
++++ b/klee/lib/Core/StatsTracker.cpp
+@@ -27,7 +27,6 @@
+ #include "UserSearcher.h"
+ 
+ #include "llvm/IR/BasicBlock.h"
+-#include "llvm/IR/CallSite.h"
+ #include "llvm/IR/CFG.h"
+ #include "llvm/IR/Function.h"
+ #include "llvm/IR/Instructions.h"
+@@ -136,7 +135,7 @@ static bool instructionIsCoverable(Instruction *i) {
+       Instruction *prev = &*(--it);
+       if (isa<CallInst>(prev) || isa<InvokeInst>(prev)) {
+         Function *target =
+-            getDirectCallTarget(CallSite(prev), /*moduleIsFullyLinked=*/true);
++            getDirectCallTarget(cast<CallBase>(*prev), /*moduleIsFullyLinked=*/true);
+         if (target && target->doesNotReturn())
+           return false;
+       }
+@@ -795,15 +794,14 @@ void StatsTracker::computeReachableUncovered() {
+         for (BasicBlock::iterator it = bbIt->begin(), ie = bbIt->end(); 
+              it != ie; ++it) {
+           Instruction *inst = &*it;
+-          if (isa<CallInst>(inst) || isa<InvokeInst>(inst)) {
+-            CallSite cs(inst);
+-            if (isa<InlineAsm>(cs.getCalledValue())) {
++          if (const CallBase *cs = dyn_cast<CallBase>(inst)) {
++            if (isa<InlineAsm>(cs->getCalledOperand())) {
+               // We can never call through here so assume no targets
+               // (which should be correct anyhow).
+               callTargets.insert(std::make_pair(inst,
+                                                 std::vector<Function*>()));
+             } else if (Function *target = getDirectCallTarget(
+-                           cs, /*moduleIsFullyLinked=*/true)) {
++                           *cs, /*moduleIsFullyLinked=*/true)) {
+               callTargets[inst].push_back(target);
+             } else {
+               callTargets[inst] =
+diff --git a/klee/lib/Module/InstructionInfoTable.cpp b/klee/lib/Module/InstructionInfoTable.cpp
+index 48575c82..eda913f7 100644
+--- a/klee/lib/Module/InstructionInfoTable.cpp
++++ b/klee/lib/Module/InstructionInfoTable.cpp
+@@ -86,7 +86,7 @@ static std::string getFullPath(llvm::StringRef Directory,
+   llvm::SmallString<128> file_pathname(Directory);
+   llvm::sys::path::append(file_pathname, FileName);
+ 
+-  return file_pathname.str();
++  return file_pathname.c_str();
+ }
+ 
+ class DebugInfoExtractor {
+@@ -159,7 +159,7 @@ public:
+         }
+       }
+       return std::unique_ptr<InstructionInfo>(new InstructionInfo(
+-          0, getInternedString(full_path), line, column, asmLine));
++          0, getInternedString(full_path.str()), line, column, asmLine));
+     }
+ 
+     if (f != nullptr)
+diff --git a/klee/lib/Module/ModuleUtil.cpp b/klee/lib/Module/ModuleUtil.cpp
+index 6adaee6d..132880d4 100644
+--- a/klee/lib/Module/ModuleUtil.cpp
++++ b/klee/lib/Module/ModuleUtil.cpp
+@@ -82,11 +82,11 @@ GetAllUndefinedSymbols(Module *M, std::set<std::string> &UndefinedSymbols) {
+   for (auto const &Function : *M) {
+     if (Function.hasName()) {
+       if (Function.isDeclaration())
+-        UndefinedSymbols.insert(Function.getName());
++        UndefinedSymbols.insert(Function.getName().str());
+       else if (!Function.hasLocalLinkage()) {
+         assert(!Function.hasDLLImportStorageClass() &&
+                "Found dllimported non-external symbol!");
+-        DefinedSymbols.insert(Function.getName());
++        DefinedSymbols.insert(Function.getName().str());
+       }
+     }
+   }
+@@ -95,17 +95,17 @@ GetAllUndefinedSymbols(Module *M, std::set<std::string> &UndefinedSymbols) {
+        I != E; ++I)
+     if (I->hasName()) {
+       if (I->isDeclaration())
+-        UndefinedSymbols.insert(I->getName());
++        UndefinedSymbols.insert(I->getName().str());
+       else if (!I->hasLocalLinkage()) {
+         assert(!I->hasDLLImportStorageClass() && "Found dllimported non-external symbol!");
+-        DefinedSymbols.insert(I->getName());
++        DefinedSymbols.insert(I->getName().str());
+       }
+     }
+ 
+   for (Module::const_alias_iterator I = M->alias_begin(), E = M->alias_end();
+        I != E; ++I)
+     if (I->hasName())
+-      DefinedSymbols.insert(I->getName());
++      DefinedSymbols.insert(I->getName().str());
+ 
+ 
+   // Prune out any defined symbols from the undefined symbols set
+@@ -251,8 +251,8 @@ klee::linkModules(std::vector<std::unique_ptr<llvm::Module>> &modules,
+   return composite;
+ }
+ 
+-Function *klee::getDirectCallTarget(CallSite cs, bool moduleIsFullyLinked) {
+-  Value *v = cs.getCalledValue();
++Function *klee::getDirectCallTarget(const CallBase &cs, bool moduleIsFullyLinked) {
++  Value *v = cs.getCalledOperand();
+   bool viaConstantExpr = false;
+   // Walk through aliases and bitcasts to try to find
+   // the function being called.
+@@ -287,14 +287,11 @@ Function *klee::getDirectCallTarget(CallSite cs, bool moduleIsFullyLinked) {
+ 
+ static bool valueIsOnlyCalled(const Value *v) {
+   for (auto user : v->users()) {
+-    if (const auto *instr = dyn_cast<Instruction>(user)) {
+-      // Make sure the instruction is a call or invoke.
+-      CallSite cs(const_cast<Instruction *>(instr));
+-      if (!cs) return false;
+-
++    // Make sure the instruction is a call or invoke.
++    if (const auto *cs = dyn_cast<CallBase>(user)) {
+       // Make sure that the value is only the target of this call and
+       // not an argument.
+-      if (cs.hasArgument(v))
++      if (cs->hasArgument(v))
+         return false;
+     } else if (const auto *ce = dyn_cast<ConstantExpr>(user)) {
+       if (ce->getOpcode() == Instruction::BitCast)
+diff --git a/klee/lib/Module/RaiseAsm.cpp b/klee/lib/Module/RaiseAsm.cpp
+index b9131018..c3cab7ac 100644
+--- a/klee/lib/Module/RaiseAsm.cpp
++++ b/klee/lib/Module/RaiseAsm.cpp
+@@ -47,7 +47,7 @@ bool RaiseAsmPass::runOnInstruction(Module &M, Instruction *I) {
+   if (!ci)
+     return false;
+ 
+-  InlineAsm *ia = dyn_cast<InlineAsm>(ci->getCalledValue());
++  InlineAsm *ia = dyn_cast<InlineAsm>(ci->getCalledOperand());
+   if (!ia)
+     return false;
+ 
+diff --git a/klee/tools/klee/main.cpp b/klee/tools/klee/main.cpp
+index 093080f8..7933029b 100644
+--- a/klee/tools/klee/main.cpp
++++ b/klee/tools/klee/main.cpp
+@@ -481,7 +481,7 @@ void KleeHandler::setInterpreter(Interpreter *i) {
+ std::string KleeHandler::getOutputFilename(const std::string &filename) {
+   SmallString<128> path = m_outputDirectory;
+   sys::path::append(path,filename);
+-  return path.str();
++  return path.c_str();
+ }
+ 
+ std::unique_ptr<llvm::raw_fd_ostream>
+@@ -953,7 +953,7 @@ std::string KleeHandler::getRunTimeLibraryPath(const char *argv0) {
+ 
+   KLEE_DEBUG_WITH_TYPE("klee_runtime", llvm::dbgs() <<
+                        libDir.c_str() << "\n");
+-  return libDir.str();
++  return libDir.c_str();
+ }
+ 
+ //===----------------------------------------------------------------------===//
+@@ -1217,7 +1217,7 @@ void externalsAndGlobalsCheck(const llvm::Module *m) {
+       for (BasicBlock::const_iterator it = bbIt->begin(), ie = bbIt->end();
+            it != ie; ++it) {
+         if (const CallInst *ci = dyn_cast<CallInst>(it)) {
+-          if (isa<InlineAsm>(ci->getCalledValue())) {
++          if (isa<InlineAsm>(ci->getCalledOperand())) {
+             klee_warning_once(&*fnIt,
+                               "function \"%s\" has inline asm",
+                               fnIt->getName().data());
+@@ -1238,7 +1238,7 @@ void externalsAndGlobalsCheck(const llvm::Module *m) {
+          it = m->alias_begin(), ie = m->alias_end();
+        it != ie; ++it) {
+     std::map<std::string, bool>::iterator it2 =
+-      externals.find(it->getName());
++      externals.find(it->getName().str());
+     if (it2!=externals.end())
+       externals.erase(it2);
+   }
+diff --git a/klee/lib/Module/KModule.cpp b/klee/lib/Module/KModule.cpp
+index 90b7411d..c3f43976 100644
+--- a/klee/lib/Module/KModule.cpp
++++ b/klee/lib/Module/KModule.cpp
+@@ -27,7 +27,6 @@
+ #else
+ #include "llvm/Bitcode/ReaderWriter.h"
+ #endif
+-#include "llvm/IR/CallSite.h"
+ #include "llvm/IR/DataLayout.h"
+ #include "llvm/IR/IRBuilder.h"
+ #include "llvm/IR/Instructions.h"
+@@ -471,13 +470,13 @@ KFunction::KFunction(llvm::Function *_function,
+       instructionsMap[inst] = ki;
+
+       if (isa<CallInst>(it) || isa<InvokeInst>(it)) {
+-        CallSite cs(inst);
++        CallBase &cs = cast<CallBase>(*inst);
+         unsigned numArgs = cs.arg_size();
+         ki->operands = new int[numArgs+1];
+-        ki->operands[0] = getOperandNum(cs.getCalledValue(), registerMap, km,
++        ki->operands[0] = getOperandNum(cs.getCalledOperand(), registerMap, km,
+                                         ki);
+         for (unsigned j=0; j<numArgs; j++) {
+-          Value *v = cs.getArgument(j);
++          Value *v = cs.getArgOperand(j);
+           ki->operands[j+1] = getOperandNum(v, registerMap, km, ki);
+         }
+       } else {
+
+# sbt-instrumentation
+diff --git a/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp b/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
+index 0e84297..528d629 100644
+--- a/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
++++ b/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
+@@ -345,15 +345,20 @@ void InterProceduralRA::MatchParametersAndReturnValues(Function &F,
+
+ 		Instruction *caller = cast<Instruction>(U);
+
++#if LLVM_VERSION_MAJOR >= 8
++		CallBase &CS = cast<CallBase>(*caller);
++#else
+ 		CallSite CS(caller);
++#endif
++
+ 		if (!CS.isCallee(const_cast<const Use *>(&(*UI))))
+ 			continue;
+
+ 		// Iterate over the real parameters and put them in the data structure
+-		CallSite::arg_iterator AI;
+-		CallSite::arg_iterator EI;
++		auto AI = CS.arg_begin();
++		auto EI = CS.arg_end();
+
+-		for (i = 0, AI = CS.arg_begin(), EI = CS.arg_end(); AI != EI; ++i, ++AI)
++		for (i = 0; AI != EI; ++i, ++AI)
+ 			Parameters[i].second = *AI;
+
+ 		// // Do the interprocedural construction of CG
+diff --git a/sbt-instrumentation/analyses/ra/RangeAnalysis.h b/sbt-instrumentation/analyses/ra/RangeAnalysis.h
+index b00ef39..412588d 100644
+--- a/sbt-instrumentation/analyses/ra/RangeAnalysis.h
++++ b/sbt-instrumentation/analyses/ra/RangeAnalysis.h
+@@ -47,7 +47,9 @@
+ #include "llvm/Support/Debug.h"
+ #include "llvm/Support/raw_ostream.h"
+ #include "llvm/IR/ConstantRange.h"
++#if LLVM_VERSION_MAJOR < 8
+ #include "llvm/IR/CallSite.h"
++#endif
+ #include "llvm/IR/InstIterator.h"
+ #include "llvm/Support/Process.h"
+ #include <deque>
+
+# sbt-transforms
+diff --git a/transforms/DeleteUndefined.cpp b/transforms/DeleteUndefined.cpp
+index 73176fb..3d3d3aa 100644
+--- a/transforms/DeleteUndefined.cpp
++++ b/transforms/DeleteUndefined.cpp
+@@ -310,9 +310,7 @@ void DeleteUndefined::defineFunction(Module *M, Function *F)
+ #endif
+         nullptr,
+         "",
+-        static_cast<Instruction*>(nullptr)); // to prevent constructor ambiguity
+-
+-    block->getInstList().push_back(AI);
++        block);
+ 
+     // insert initialization of the new global variable
+     // at the beginning of main
+diff --git a/transforms/InitializeUninitialized.cpp b/transforms/InitializeUninitialized.cpp
+index d587a58..5ff135f 100644
+--- a/transforms/InitializeUninitialized.cpp
++++ b/transforms/InitializeUninitialized.cpp
+@@ -256,6 +256,9 @@ bool InitializeUninitialized::runOnFunction(Function &F)
+                 AI->getType()->getAddressSpace(),
+ #endif
+                 nullptr,
++#if LLVM_VERSION_MAJOR >= 11
++                AI->getAlign(),
++#endif
+                 "",
+                 static_cast<Instruction*>(nullptr));
+             AIS->insertAfter(AI);
+@@ -276,8 +279,19 @@ bool InitializeUninitialized::runOnFunction(Function &F)
+                 AIS->getType()->getPointerElementType(),
+                 AIS,
+                 "",
++#if LLVM_VERSION_MAJOR >= 11
++                false,
++                AIS->getAlign(),
++#endif
++                static_cast<Instruction*>(nullptr));
++            SI = new StoreInst(
++                LI,
++                AI,
++                false,
++#if LLVM_VERSION_MAJOR >= 11
++                LI->getAlign(),
++#endif
+                 static_cast<Instruction*>(nullptr));
+-            SI = new StoreInst(LI, AI, false, static_cast<Instruction*>(nullptr));
+             LI->insertAfter(CI);
+             SI->insertAfter(LI);
+ 
+diff --git a/transforms/InstrumentNontermination.cpp b/transforms/InstrumentNontermination.cpp
+index 5db3e84..d033199 100644
+--- a/transforms/InstrumentNontermination.cpp
++++ b/transforms/InstrumentNontermination.cpp
+@@ -208,10 +208,8 @@ bool InstrumentNontermination::instrumentLoop(Loop *L, const std::set<llvm::Valu
+ #endif
+             nullptr,
+             "",
+-            static_cast<Instruction*>(nullptr)); // prevents constructor ambiguity
+-
+-        // puth the alloca on the beginning of the function
+-        newVal->insertBefore(header->getParent()->getBasicBlockList().front().getTerminator());
++            // put the alloca on the beginning of the function
++            header->getParent()->getBasicBlockList().front().getTerminator());
+     } else {
+       llvm::errs() << "ERROR: Unhandled copying: " << *v << "\n";
+       return false;
+@@ -231,8 +229,18 @@ bool InstrumentNontermination::instrumentLoop(Loop *L, const std::set<llvm::Valu
+         it.first->getType()->getPointerElementType(),
+         it.first,
+         "",
++#if LLVM_VERSION_MAJOR >= 11
++        false,
++        header->getModule()->getDataLayout()
++            .getABITypeAlign(it.first->getType()),
++#endif
+         static_cast<Instruction*>(nullptr));
+-    auto *SI = new StoreInst(LI, it.second, false,
++    auto *SI = new StoreInst(LI,
++        it.second,
++        false,
++#if LLVM_VERSION_MAJOR >= 11
++        LI->getAlign(),
++#endif
+         static_cast<Instruction*>(nullptr));
+ 
+     CloneMetadata(header->getTerminator(), LI);
+@@ -278,12 +286,12 @@ bool InstrumentNontermination::instrumentLoop(Loop *L, const std::set<llvm::Valu
+           it.first->getType()->getPointerElementType(),
+           it.first,
+           "",
+-          static_cast<Instruction*>(nullptr));
++          term);
+       auto *oldVal = new LoadInst(
+           it.second->getType()->getPointerElementType(),
+           it.second,
+           "",
+-          static_cast<Instruction*>(nullptr));
++          term);
+       auto *cmp = new ICmpInst(ICmpInst::ICMP_EQ, newVal, oldVal);
+ 
+ #if LLVM_VERSION_MAJOR > 7
+@@ -296,8 +304,6 @@ bool InstrumentNontermination::instrumentLoop(Loop *L, const std::set<llvm::Valu
+       CloneMetadata(md, newVal);
+       CloneMetadata(md, oldVal);
+       CloneMetadata(md, cmp);
+-      newVal->insertBefore(term);
+-      oldVal->insertBefore(term);
+       cmp->insertBefore(term);
+ 
+       if (lastCond) {
+diff --git a/transforms/MakeNondet.cpp b/transforms/MakeNondet.cpp
+index ba7ab0e..317e02a 100644
+--- a/transforms/MakeNondet.cpp
++++ b/transforms/MakeNondet.cpp
+@@ -156,6 +156,9 @@ void MakeNondet::replaceCall(Module& M, CallInst *CI,
+       0,
+ #endif
+       nullptr,
++#if LLVM_VERSION_MAJOR >= 11
++      M.getDataLayout().getPrefTypeAlign(CI->getType()),
++#endif
+       "",
+       static_cast<Instruction*>(nullptr));
+ 
+@@ -183,6 +186,10 @@ void MakeNondet::replaceCall(Module& M, CallInst *CI,
+ #endif
+       AI,
+       name,
++#if LLVM_VERSION_MAJOR >= 11
++      false,
++      AI->getAlign(),
++#endif
+       static_cast<Instruction*>(nullptr));
+ 
+   new_CI->insertBefore(CI);
+
+# symbiotic itself
+diff --git a/lib/symbioticpy/symbiotic/optimizations.py b/lib/symbioticpy/symbiotic/optimizations.py
+index 28fe7e8..8ba4529 100644
+--- a/lib/symbioticpy/symbiotic/optimizations.py
++++ b/lib/symbioticpy/symbiotic/optimizations.py
+@@ -36,7 +36,7 @@ optimizations = {
+      '-assumption-cache-tracker', '-forceattrs', '-inferattrs', '-ipsccp',
+      '-globalopt', '-domtree',
+      '-mem2reg',
+-     '-deadargelim', '-basicaa', '-aa',
++     '-deadargelim', '-basic-aa', '-aa',
+      '-domtree', '-instcombine', '-simplifycfg', '-basiccg', '-globals-aa',
+      '-prune-eh',
+      # if we inline too much, then the analysis take too long and
+@@ -45,7 +45,7 @@ optimizations = {
+      '-inline', '-functionattrs', '-argpromotion', '-domtree',
+      '-sroa',
+      '-early-cse', '-lazy-value-info', '-jump-threading',
+-     '-correlated-propagation', '-simplifycfg', '-basicaa', '-aa', '-domtree',
++     '-correlated-propagation', '-simplifycfg', '-basic-aa', '-aa', '-domtree',
+      '-instcombine', '-tailcallelim', '-simplifycfg', '-reassociate', '-domtree',
+      '-loops', '-loop-simplify', '-lcssa',
+      # TODO
+@@ -55,20 +55,20 @@ optimizations = {
+      # but moving loop-rotate after loop-unswitch fixes it. Do not have time
+      # to look into that now (so I won't probably do that ever)
+      # '-loop-rotate',
+-     '-basicaa', '-aa',
++     '-basic-aa', '-aa',
+      '-licm', '-loop-unswitch',
+      # OK, do not use loop-rotate at all, it transforms the loops in the way
+      # that we can not handle because we use the Ferrante's CD algorithm
+      #'-loop-rotate',
+-     '-simplifycfg', '-basicaa', '-aa', '-domtree',
++     '-simplifycfg', '-basic-aa', '-aa', '-domtree',
+      '-instcombine', '-loops', '-scalar-evolution', '-loop-simplify', '-lcssa',
+      '-indvars', '-aa', '-loop-idiom', '-loop-deletion', '-loop-unroll',
+-     '-basicaa', '-aa', '-mldst-motion', '-aa', '-memdep', '-gvn', '-basicaa',
++     '-basic-aa', '-aa', '-mldst-motion', '-aa', '-memdep', '-gvn', '-basic-aa',
+      '-aa', '-memdep', '-memcpyopt', '-sccp', '-domtree', '-demanded-bits',
+-     '-bdce', '-basicaa', '-aa', '-instcombine', '-lazy-value-info',
+-     '-jump-threading', '-correlated-propagation', '-domtree', '-basicaa',
++     '-bdce', '-basic-aa', '-aa', '-instcombine', '-lazy-value-info',
++     '-jump-threading', '-correlated-propagation', '-domtree', '-basic-aa',
+      '-aa', '-memdep', '-dse', '-loops', '-loop-simplify', '-lcssa', '-aa',
+-     '-licm', '-adce', '-simplifycfg', '-basicaa', '-aa', '-domtree',
++     '-licm', '-adce', '-simplifycfg', '-basic-aa', '-aa', '-domtree',
+      '-instcombine', '-barrier', '-basiccg', '-rpo-functionattrs',
+      '-elim-avail-extern', '-basiccg', '-globals-aa', '-float2int', '-domtree',
+      '-loops',
+@@ -77,13 +77,13 @@ optimizations = {
+      # we use the Ferrante's control dependencies
+      # '-loop-rotate',
+      '-branch-prob',
+-     '-block-freq', '-scalar-evolution', '-basicaa', '-aa', '-loop-accesses',
++     '-block-freq', '-scalar-evolution', '-basic-aa', '-aa', '-loop-accesses',
+      '-demanded-bits',
+      #    #'-loop'-vectorize',
+      '-instcombine', '-scalar-evolution', '-aa',
+      #    # '-slp-vectorizer',
+-     '-simplifycfg', '-basicaa', '-aa', '-domtree', '-instcombine', '-loops',
+-     '-loop-simplify', '-lcssa', '-scalar-evolution', '-loop-unroll', '-basicaa',
++     '-simplifycfg', '-basic-aa', '-aa', '-domtree', '-instcombine', '-loops',
++     '-loop-simplify', '-lcssa', '-scalar-evolution', '-loop-unroll', '-basic-aa',
+      '-aa', '-instcombine', '-loop-simplify', '-lcssa', '-aa', '-licm',
+      '-scalar-evolution', '-alignment-from-assumptions',
+      '-strip-dead-prototypes', '-globaldce', '-constmerge', '-verify'],
+@@ -95,33 +95,33 @@ optimizations = {
+      '-sroa', '-early-cse', '-lower-expect',
+      '-targetlibinfo', '-tti', '-tbaa', '-scoped-noalias',
+      '-assumption-cache-tracker', '-forceattrs', '-inferattrs', '-ipsccp',
+-     '-globalopt', '-domtree', '-mem2reg', '-deadargelim', '-basicaa', '-aa',
++     '-globalopt', '-domtree', '-mem2reg', '-deadargelim', '-basic-aa', '-aa',
+      '-domtree', '-instcombine', '-simplifycfg', '-basiccg', '-globals-aa',
+      '-prune-eh', '-inline', '-functionattrs',
+      #'-argpromotion',
+      '-domtree', '-sroa', '-early-cse', '-lazy-value-info', '-jump-threading',
+-     '-correlated-propagation', '-simplifycfg', '-basicaa', '-aa', '-domtree',
++     '-correlated-propagation', '-simplifycfg', '-basic-aa', '-aa', '-domtree',
+      '-instcombine', '-tailcallelim', '-simplifycfg', '-reassociate', '-domtree',
+-     '-loops', '-loop-simplify', '-lcssa', '-loop-rotate', '-basicaa', '-aa',
+-     '-licm', '-loop-unswitch', '-simplifycfg', '-basicaa', '-aa', '-domtree',
++     '-loops', '-loop-simplify', '-lcssa', '-loop-rotate', '-basic-aa', '-aa',
++     '-licm', '-loop-unswitch', '-simplifycfg', '-basic-aa', '-aa', '-domtree',
+      '-instcombine', '-loops', '-scalar-evolution', '-loop-simplify', '-lcssa',
+      '-indvars', '-aa', '-loop-idiom', '-loop-deletion', '-loop-unroll',
+-     '-basicaa', '-aa', '-mldst-motion', '-aa', '-memdep', '-gvn', '-basicaa',
++     '-basic-aa', '-aa', '-mldst-motion', '-aa', '-memdep', '-gvn', '-basic-aa',
+      '-aa', '-memdep', '-memcpyopt', '-sccp', '-domtree', '-demanded-bits',
+-     '-bdce', '-basicaa', '-aa', '-instcombine', '-lazy-value-info',
+-     '-jump-threading', '-correlated-propagation', '-domtree', '-basicaa',
++     '-bdce', '-basic-aa', '-aa', '-instcombine', '-lazy-value-info',
++     '-jump-threading', '-correlated-propagation', '-domtree', '-basic-aa',
+      '-aa', '-memdep', '-dse', '-loops', '-loop-simplify', '-lcssa', '-aa',
+-     '-licm', '-adce', '-simplifycfg', '-basicaa', '-aa', '-domtree',
++     '-licm', '-adce', '-simplifycfg', '-basic-aa', '-aa', '-domtree',
+      '-instcombine', '-barrier', '-basiccg', '-rpo-functionattrs',
+      '-elim-avail-extern', '-basiccg', '-globals-aa', '-float2int', '-domtree',
+      '-loops', '-loop-simplify', '-lcssa', '-loop-rotate', '-branch-prob',
+-     '-block-freq', '-scalar-evolution', '-basicaa', '-aa', '-loop-accesses',
++     '-block-freq', '-scalar-evolution', '-basic-aa', '-aa', '-loop-accesses',
+      '-demanded-bits',
+      #'-loop'-vectorize',
+      '-instcombine', '-scalar-evolution', '-aa',
+      # '-slp-vectorizer',
+-     '-simplifycfg', '-basicaa', '-aa', '-domtree', '-instcombine', '-loops',
+-     '-loop-simplify', '-lcssa', '-scalar-evolution', '-loop-unroll', '-basicaa',
++     '-simplifycfg', '-basic-aa', '-aa', '-domtree', '-instcombine', '-loops',
++     '-loop-simplify', '-lcssa', '-scalar-evolution', '-loop-unroll', '-basic-aa',
+      '-aa', '-instcombine', '-loop-simplify', '-lcssa', '-aa', '-licm',
+      '-scalar-evolution', '-alignment-from-assumptions',
+      '-strip-dead-prototypes', '-globaldce', '-constmerge', '-verify']

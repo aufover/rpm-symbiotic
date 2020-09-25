@@ -1,0 +1,253 @@
+# DG
+
+diff --git a/dg/CMakeLists.txt b/dg/CMakeLists.txt
+index 07dedccb..f69a21eb 100644
+--- a/dg/CMakeLists.txt
++++ b/dg/CMakeLists.txt
+@@ -60,22 +60,30 @@ if (LLVM_DG)
+ 	add_definitions(${LLVM_DEFINITIONS})
+ 	add_definitions(-DHAVE_LLVM)
+ 
+-	if (${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
+-		llvm_map_components_to_libnames(llvm_core core)
+-		llvm_map_components_to_libnames(llvm_irreader irreader)
+-		llvm_map_components_to_libnames(llvm_bitwriter bitwriter)
+-		llvm_map_components_to_libnames(llvm_analysis analysis)
+-		llvm_map_components_to_libnames(llvm_support support)
++	if (LLVM_LINK_LLVM_DYLIB)
++		foreach(lib core irreader bitwriter analysis support)
++			set(llvm_${lib} LLVM)
++		endforeach()
++		message(STATUS "LLVM will be linked dynamically")
+ 	else()
+-		llvm_map_components_to_libraries(llvm_core core)
+-		llvm_map_components_to_libraries(llvm_irreader irreader)
+-		llvm_map_components_to_libraries(llvm_bitwriter bitwriter)
+-		llvm_map_components_to_libraries(llvm_analysis analysis)
+-		llvm_map_components_to_libraries(llvm_support support)
++		if (${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
++			llvm_map_components_to_libnames(llvm_core core)
++			llvm_map_components_to_libnames(llvm_irreader irreader)
++			llvm_map_components_to_libnames(llvm_bitwriter bitwriter)
++			llvm_map_components_to_libnames(llvm_analysis analysis)
++			llvm_map_components_to_libnames(llvm_support support)
++		else()
++			llvm_map_components_to_libraries(llvm_core core)
++			llvm_map_components_to_libraries(llvm_irreader irreader)
++			llvm_map_components_to_libraries(llvm_bitwriter bitwriter)
++			llvm_map_components_to_libraries(llvm_analysis analysis)
++			llvm_map_components_to_libraries(llvm_support support)
++		endif()
++		message(STATUS "LLVM will be linked statically")
+ 	endif()
+ 
+ 	# LLVM 10 and newer require at least c++14 standard
+-	if (${LLVM_PACKAGE_VERSION} VERSION_GREATER_EQUAL "10.0")
++	if (${LLVM_PACKAGE_VERSION} VERSION_GREATER "9.0")
+ 		set(CMAKE_CXX_STANDARD 14)
+ 		option(USE_CXX14 "Use C++14 standard" ON)
+ 	endif()
+@@ -103,7 +110,9 @@ if (SVF_DIR)
+ 	include_directories(${SVF_INCLUDE})
+ 	link_directories(${SVF_LIBDIR} ${SVF_LIBDIR}/CUDD)
+ 
+-	if (${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
++	if (LLVM_LINK_LLVM_DYLIB)
++		set(llvm_transformutils LLVM)
++	elseif (${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
+ 		llvm_map_components_to_libnames(llvm_transformutils transformutils)
+ 	else()
+ 		llvm_map_components_to_libraries(llvm_transformutils transformutils)
+diff --git a/dg/tools/llvm-ntscd-dump.cpp b/dg/tools/llvm-ntscd-dump.cpp
+index 7ec9d53c..dc1cfa2a 100644
+--- a/dg/tools/llvm-ntscd-dump.cpp
++++ b/dg/tools/llvm-ntscd-dump.cpp
+@@ -41,7 +41,7 @@ int main(int argc, const char *argv[]) {
+                                          cl::Required,
+                                          cl::desc("<input file>"),
+                                          cl::init(""));
+-    llvm::cl::opt<bool> threads("threads",
++    llvm::cl::opt<bool> thread("threas",
+                                 llvm::cl::desc("Consider threads are in input file (default=false)."),
+                                 llvm::cl::init(false));
+     llvm::LLVMContext context;
+@@ -64,7 +64,7 @@ int main(int argc, const char *argv[]) {
+     dg::LLVMPointerAnalysisOptions opts;
+     opts.setEntryFunction("main");
+     opts.analysisType = dg::LLVMPointerAnalysisOptions::AnalysisType::fi;
+-    opts.threads = threads;
++    opts.threads = thread;
+     opts.setFieldSensitivity(dg::Offset::UNKNOWN);
+ 
+     dg::DGLLVMPointerAnalysis pointsToAnalysis(M.get(), opts);
+diff --git a/dg/tools/llvm-slicer-opts.cpp b/dg/tools/llvm-slicer-opts.cpp
+index fe70032c..90b99a98 100644
+--- a/dg/tools/llvm-slicer-opts.cpp
++++ b/dg/tools/llvm-slicer-opts.cpp
+@@ -165,8 +165,8 @@ SlicerOptions parseSlicerOptions(int argc, char *argv[], bool requireCrit, bool
+         llvm::cl::desc("Perform forward slicing\n"),
+                        llvm::cl::init(false), llvm::cl::cat(SlicingOpts));
+ 
+-    llvm::cl::opt<bool> threads("threads",
+-        llvm::cl::desc("Consider threads are in input file (default=false)."),
++    llvm::cl::opt<bool> thread("thread",
++        llvm::cl::desc("Consider thread are in input file (default=false)."),
+         llvm::cl::init(false), llvm::cl::cat(SlicingOpts));
+ 
+     llvm::cl::opt<std::string> allocationFuns("allocation-funs",
+@@ -228,7 +228,7 @@ SlicerOptions parseSlicerOptions(int argc, char *argv[], bool requireCrit, bool
+     options.dgOptions.PTAOptions.analysisType = ptaType;
+ 
+-    options.dgOptions.threads = threads;
+-    options.dgOptions.PTAOptions.threads = threads;
+-    options.dgOptions.DDAOptions.threads = threads;
++    options.dgOptions.threads = thread;
++    options.dgOptions.PTAOptions.threads = thread;
++    options.dgOptions.DDAOptions.threads = thread;
+
+     options.dgOptions.DDAOptions.entryFunction = entryFunction;
+
+# sbt-transforms
+diff --git a/transforms/CMakeLists.txt b/transforms/CMakeLists.txt
+index 4f71902..2e267f7 100644
+--- a/transforms/CMakeLists.txt
++++ b/transforms/CMakeLists.txt
+@@ -9,14 +9,6 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+ list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
+ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+ 
+-# This is probably unnecessary
+-if (${LLVM_PACKAGE_VERSION} VERSION_LESS "3.8")
+-  # needed for LLVM 3.7
+-  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+-  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+-  include(HandleLLVMOptions)
+-endif()
+-
+ include(AddLLVM)
+ 
+ # explicitly add -std=c++11 (c++14), some cmake versions
+@@ -57,11 +50,6 @@ include(GNUInstallDirs)
+ message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
+ message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
+ 
+-# We need all the symbols with dynamic libs. With static libs, we get errors.
+-if (BUILD_SHARED_LIBS)
+-  set(LLVM_LINK_COMPONENTS analysis core support)
+-endif()
+-
+ add_library(LLVMsbt MODULE "BreakCritLoops.cpp"
+                            "BreakInfiniteLoops.cpp"
+                            "CheckModule.cpp"
+@@ -92,6 +80,7 @@ add_library(LLVMsbt MODULE "BreakCritLoops.cpp"
+ 
+ # remove lib prefix for compatibility with older releases
+ set_target_properties(LLVMsbt PROPERTIES PREFIX "")
++target_link_libraries(LLVMsbt LLVM)
+ 
+ install(TARGETS LLVMsbt
+         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+diff --git a/transforms/InternalizeGlobals.cpp b/transforms/InternalizeGlobals.cpp
+index 3c6a3db..3d7c5a7 100644
+--- a/transforms/InternalizeGlobals.cpp
++++ b/transforms/InternalizeGlobals.cpp
+@@ -64,9 +64,8 @@ bool InternalizeGlobals::initializeExternalGlobals(Module& M) {
+     // GV is a pointer to some memory, we want the size of the memory
+     Type *Ty = GV->getType()->getContainedType(0);
+     if (!Ty->isSized()) {
+-      GV->dump();
+-      llvm::errs() << "ERROR: failed making global variable symbolic "
+-                      "(type is unsized)\n";
++      llvm::errs() << GV << "\nERROR: failed making global variable symbolic "
++                            "(type is unsized)\n";
+       continue;
+     }
+ 
+@@ -86,9 +85,8 @@ bool InternalizeGlobals::initializeExternalGlobals(Module& M) {
+     // point to and set it to symbolic at the beggining of main
+     if (Ty->isPointerTy()) {
+         if (!Ty->getContainedType(0)->isSized()) {
+-            GV->dump();
+-            llvm::errs() << "ERROR: failed making global variable symbolic "
+-                            "(referenced type is unsized)\n";
++            llvm::errs() << GV << "\nERROR: failed making global variable "
++                                  "symbolic (referenced type is unsized)\n";
+             continue;
+         }
+ 
+
+# sbt-slicer
+diff --git a/sbt-slicer/CMakeLists.txt b/sbt-slicer/CMakeLists.txt
+index 9019238..69d5a90 100644
+--- a/sbt-slicer/CMakeLists.txt
++++ b/sbt-slicer/CMakeLists.txt
+@@ -56,12 +56,18 @@ endif(LLVM_BUILD_PATH)
+ 
+ add_definitions(${LLVM_DEFINITIONS})
+ 
+-if (NOT ${LLVM_PACKAGE_VERSION} VERSION_LESS "3.4")
+-	llvm_map_components_to_libnames(llvm_libs support core
+-	                                irreader bitwriter analysis)
++if (LLVM_LINK_LLVM_DYLIB)
++  set(llvm_libs LLVM)
++  message(STATUS "LLVM will be linked dynamically")
+ else()
+-	llvm_map_components_to_libraries(llvm_libs support core
+-	                                 irreader bitwriter analysis)
++  if (NOT ${LLVM_PACKAGE_VERSION} VERSION_LESS "3.4")
++    llvm_map_components_to_libnames(llvm_libs support core irreader bitwriter
++                                              analysis)
++  else()
++    llvm_map_components_to_libraries(llvm_libs support core irreader bitwriter
++                                               analysis)
++  endif()
++  message(STATUS "LLVM will be linked statically")
+ endif()
+ 
+ # enable CFG and LLVM in dg
+diff --git a/sbt-slicer/src/llvm-slicer-opts.cpp b/sbt-slicer/src/llvm-slicer-opts.cpp
+index f9cb88f..6501c16 100644
+--- a/sbt-slicer/src/llvm-slicer-opts.cpp
++++ b/sbt-slicer/src/llvm-slicer-opts.cpp
+@@ -125,7 +125,7 @@ SlicerOptions parseSlicerOptions(int argc, char *argv[]) {
+         llvm::cl::desc("Perform forward slicing\n"),
+                        llvm::cl::init(false), llvm::cl::cat(SlicingOpts));
+
+-    llvm::cl::opt<bool> threads("threads",
++    llvm::cl::opt<bool> threads("consider-threads",
+         llvm::cl::desc("Consider threads are in input file (default=false)."),
+         llvm::cl::init(false), llvm::cl::cat(SlicingOpts));
+
+# sbt-instrumentation
+diff --git a/sbt-instrumentation/CMakeLists.txt b/sbt-instrumentation/CMakeLists.txt
+index 700e0de..727187f 100644
+--- a/sbt-instrumentation/CMakeLists.txt
++++ b/sbt-instrumentation/CMakeLists.txt
+@@ -89,7 +89,9 @@ endif()
+ 
+ # Find the libraries that correspond to the LLVM components
+ # that we wish to use
+-if (${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
++if(LLVM_LINK_LLVM_DYLIB)
++  set(llvm_libs LLVM)
++elseif(${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
+   llvm_map_components_to_libnames(llvm_libs support core irreader bitwriter linker)
+ else()
+   llvm_map_components_to_libraries(llvm_libs support core irreader bitwriter linker)
+
+# llvm2c
+diff --git a/llvm2c/CMakeLists.txt b/llvm2c/CMakeLists.txt
+index b33b328..d537eaf 100644
+--- a/llvm2c/CMakeLists.txt
++++ b/llvm2c/CMakeLists.txt
+@@ -38,7 +38,9 @@ add_definitions(-DHAVE_LLVM)
+ 
+ # Find the libraries that correspond to the LLVM components
+ # that we wish to use
+-if (${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
++if (LLVM_LINK_LLVM_DYLIB)
++  set(llvm_libs LLVM)
++elseif (${LLVM_PACKAGE_VERSION} VERSION_GREATER "3.4")
+   llvm_map_components_to_libnames(llvm_libs support core irreader bitwriter linker)
+ else()
+   llvm_map_components_to_libraries(llvm_libs support core irreader bitwriter linker)
