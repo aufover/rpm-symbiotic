@@ -3,14 +3,14 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-528-g0db3c4a"
+SYMBIOTIC_REV="svcomp19-536-g7cb795a"
 
 rm -rf srpm
 mkdir srpm
 cd srpm
 
 # clone symbiotic git repo, including its submodules
-git clone --depth 1 --recurse-submodules https://github.com/staticafi/symbiotic.git
+git clone --recurse-submodules --shallow-submodules https://github.com/staticafi/symbiotic.git
 
 pushd symbiotic > /dev/null
 
