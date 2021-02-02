@@ -1,7 +1,7 @@
 # Skip submodule initialisation
 --- a/scripts/build-utils.sh
 +++ b/scripts/build-utils.sh
-@@ -75,12 +75,7 @@
+@@ -94,12 +94,7 @@
  
  git_submodule_init()
  {
@@ -78,7 +78,7 @@
 -)
 -include_directories(${CMAKE_CURRENT_BINARY_DIR})
 -
- add_executable(sbt-slicer sbt-slicer.cpp llvm-slicer-opts.cpp llvm-slicer-utils.cpp)
+ add_executable(sbt-slicer sbt-slicer.cpp)
  target_link_libraries(sbt-slicer ${dg_libs} ${llvm_libs})
  add_dependencies(sbt-slicer gitversion)
 
@@ -127,3 +127,29 @@ index cb4ecff..4660656 100755
  	mkdir -p build-${LLVM_VERSION}
  	pushd build-${LLVM_VERSION}
  	if [ ! -d CMakeFiles ]; then
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a3df8ba..700e0de 100644
+--- a/sbt-instrumentation/CMakeLists.txt
++++ b/sbt-instrumentation/CMakeLists.txt
+@@ -79,18 +79,12 @@ include(GNUInstallDirs)
+ message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
+ message(STATUS "CMAKE_INSTALL_DATADIR: \"${CMAKE_INSTALL_FULL_DATADIR}\"")
+ 
+-include(FindPkgConfig)
+-pkg_search_module(JSON jsoncpp)
+-set(JSONCPP_MIN_VERSION "1.9.1")
+-set(JSONCPP_MAX_VERSION "2")
+-if (JSON_FOUND AND (JSON_VERSION VERSION_GREATER JSONCPP_MIN_VERSION) AND (JSON_VERSION VERSION_LESS JSONCPP_MAX_VERSION))
+-	set(JSON_LIBS ${JSON_LINK_LIBRARIES})
++find_package(jsoncpp CONFIG)
++if (jsoncpp_FOUND)
++	set(JSON_LIBS jsoncpp_lib)
+ 	message(STATUS "Using system jsoncpp library")
+ else()
+ 	set(JSON_FILES jsoncpp.cpp)
+-    if (JSON_FOUND)
+-      message(STATUS "System contains jsoncpp library version ${JSON_VERSION}, which is not compatible. Only versions between ${JSONCPP_MIN_VERSION} < v < ${JSONCPP_MAX_VERSION} are compatible.")
+-    endif()
+ endif()
+ 
+ option(LLVM_LINK_DYLIB "Link with LLVM dynamically" ON)

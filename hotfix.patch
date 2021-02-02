@@ -1,16 +1,3 @@
-# Useless patches, that may be useful to be upstreamed
---- a/sbt-instrumentation/bootstrap-json.sh
-+++ b/sbt-instrumentation/bootstrap-json.sh
-@@ -22,7 +17,7 @@
- fi
- 
- make
--python amalgamate.py
-+python3 amalgamate.py
- 
- # copy the jsoncpp.cpp file into parent's src/ folder
- cp dist/jsoncpp.cpp ../src/
-
 # Build with default Fedora build flags
 diff --git a/scripts/build-utils.sh b/scripts/build-utils.sh
 index 3a43d55..60597d0 100644
@@ -20,8 +7,8 @@ index 3a43d55..60597d0 100644
  
  build()
  {
--	make $OPTS CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" $@ || exit 1
-+	make $OPTS CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $@ || exit 1
+-	make $OPTS CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" $@ || exitmsg "Failed build"
++	make $OPTS CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $@ || exitmsg "Failed build"
  	return 0
  }
  
@@ -77,3 +64,17 @@ index c662433..e84e123 100755
  		FILES="$FILES ${LLVM#install/}/lib32/$OUT"
  	done
  done
+
+# Fix build with GCC 11
+diff --git a/dg/include/dg/PointerAnalysis/Pointer.h b/dg/include/dg/PointerAnalysis/Pointer.h
+index 2a05d3ac..1cc1e862 100644
+--- a/dg/include/dg/PointerAnalysis/Pointer.h
++++ b/dg/include/dg/PointerAnalysis/Pointer.h
+@@ -3,6 +3,7 @@
+ 
+ #include "dg/Offset.h"
+ #include <cassert>
++#include <cstddef>
+ 
+ namespace dg {
+ namespace pta {
