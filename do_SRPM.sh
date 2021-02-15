@@ -3,7 +3,7 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-715-gad622b5"
+SYMBIOTIC_REV="svcomp19-718-g6c18930"
 
 rm -rf srpm
 mkdir srpm
@@ -81,6 +81,7 @@ BuildRequires: glibc-devel
 BuildRequires: glibc-devel(x86-32)
 BuildRequires: jsoncpp-devel
 BuildRequires: llvm-devel
+BuildRequires: make
 BuildRequires: ncurses-devel
 BuildRequires: python3
 BuildRequires: sqlite-devel
@@ -89,6 +90,7 @@ BuildRequires: zlib-devel
 
 Requires: clang
 Requires: llvm
+Requires: python3
 
 %description
 Symbiotic is a tool for analysis of sequential computer programs written in the programming language C. It can check all common safety properties like assertion violations, invalid pointer dereference, double free, memory leaks, etc.

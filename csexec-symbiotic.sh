@@ -2,59 +2,38 @@
 
 usage() {
   cat << EOF
-USAGE:
+USAGE: $0 -s SYMBIOTIC_ARGS ARGV
 1) Build the source with gllvm and CFLAGS internally used by Symbiotic and
    LDFLAGS='-Wl,--dynamic-linker=/usr/bin/csexec-loader'.
-2) CSEXEC_WRAP_CMD=$'csexec-symbiotic.sh\a--prp=memsafety' make check
+2) CSEXEC_WRAP_CMD=$'--skip-ld-linux\acsexec-symbiotic\a-s\a--prp=memsafety' make check
 3) Wait for some time.
 4) ...
 5) Profit!
 EOF
 }
 
-if [ $# -eq 0 ]; then
-  usage
-  exit 1
-fi
+[[ $# -eq 0 ]] && usage && exit 1
 
-if [ ! -x /usr/bin/get-bc ]; then
-  echo "gllvm is not installed!" > /dev/tty
-  exit 42
-fi
-
-i=1
-while [ ! -e ${!i} ]; do
-  SYMBIOTIC_ARGS[$i - 1]="${!i}"
-  ((i++))
+while getopts "s:h" opt; do
+  case "$opt" in
+    s)
+      SYMBIOTIC=($OPTARG)
+      ;;
+    h)
+      usage && exit 0
+      ;;
+    *)
+      usage && exit 1
+      ;;
+  esac
 done
 
-# Skip LD_LINUX_SO
-((i++))
+shift $((OPTIND - 1))
+ARGV=("$@")
 
-# Skip --argv0
-if [ ${!i} = "--argv0" ]; then
-  ((i += 2))
-fi
+# Run!
+get-bc "${ARGV[0]}" 1> /dev/tty 2>&1
+symbiotic "${SYMBIOTIC[@]}" --argv="'${ARGV[*]}'" "${ARGV[0]}.bc" 1> /dev/tty 2>&1
 
-BINARY="${!i}"
-((i++))
-
-BINARY_ARGV="${!i}"
-((i++))
-
-while [ $i -le $# ]; do
-  BINARY_ARGV="$BINARY_ARGV,${!i}"
-  ((i++))
-done
-
-get-bc "$BINARY" 1> /dev/tty 2>&1
-echo "Executing 'symbiotic${SYMBIOTIC_ARGS[*]} --argv='$BINARY_ARGV' $BINARY.bc'" 1> /dev/tty 2>&1
-symbiotic "${SYMBIOTIC_ARGS[@]}" --argv="'$BINARY_ARGV'" "$BINARY.bc" 1> /dev/tty 2>&1
-
-i=1
-while [[ ! "${!i}" =~ "ld-linux" ]]; do
-    ((i++))
-done
-
-ARGS=( "$@" )
-exec "${ARGS[@]:i-1}"
+# Continue
+exec $(csexec --print-ld-exec-cmd) "${ARGV[@]}"
