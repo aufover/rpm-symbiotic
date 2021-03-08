@@ -3,7 +3,7 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-718-g6c18930"
+SYMBIOTIC_REV="svcomp19-720-gd52fe5c"
 
 rm -rf srpm
 mkdir srpm
@@ -74,6 +74,11 @@ Patch2:     llvm-dynamic-link.patch
 Patch3:     llvm-11.patch
 %endif
 
+# F34 still has LLVM 11 at the moment
+%if 0%{?fedora} > 34
+Patch4:     llvm-12.patch
+%endif
+
 BuildRequires: gcc-c++
 BuildRequires: clang
 BuildRequires: cmake
@@ -124,7 +129,7 @@ ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}%{_bindir}/symbiotic
 %{_bindir}/csexec-symbiotic
 EOF
 
-cp ../{symbiotic2cs.py,csexec-symbiotic.sh,{build,hotfix,llvm-{11,dynamic-link}}.patch} .
+cp ../{symbiotic2cs.py,csexec-symbiotic.sh,{build,hotfix,llvm-*}.patch} .
 
 # Needed to build the SRPM with correct patches included
 mock --buildsrpm --spec "$PKG.spec" --sources "$PWD" -r fedora-rawhide-x86_64
