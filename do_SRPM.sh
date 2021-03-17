@@ -3,7 +3,7 @@
 set -e
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-720-gd52fe5c"
+SYMBIOTIC_REV="svcomp19-723-g1e1fb34"
 
 rm -rf srpm
 mkdir srpm
@@ -46,10 +46,11 @@ popd > /dev/null # leave the `symbiotic` directory
 
 # package version
 PKG=symbiotic
-NV=$(git describe --tags)
+NV=$(grep 'VERSION=' symbiotic/lib/symbioticpy/symbiotic/options.py \
+     | cut -d "'" -f 2 | head -n 1 | sed 's/-/\./g')
 TIMESTAMP=$(git log --pretty="%cd" --date=iso -1 | tr -d ':-' \
             | tr ' ' . | cut -d . -f 1,2)
-VER=$(echo "$NV" | sed "s/-.*-/.$TIMESTAMP./")
+VER="$NV.$TIMESTAMP"
 
 echo "Making symbiotic-$VER.tar.xz"
 mv symbiotic "symbiotic-$VER"
@@ -74,8 +75,7 @@ Patch2:     llvm-dynamic-link.patch
 Patch3:     llvm-11.patch
 %endif
 
-# F34 still has LLVM 11 at the moment
-%if 0%{?fedora} > 34
+%if 0%{?fedora} > 33
 Patch4:     llvm-12.patch
 %endif
 
