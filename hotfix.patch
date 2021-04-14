@@ -65,16 +65,3 @@ index c662433..e84e123 100755
  	done
  done
 
-# Fix build with GCC 11
-diff --git a/dg/include/dg/PointerAnalysis/Pointer.h b/dg/include/dg/PointerAnalysis/Pointer.h
-index 2a05d3ac..1cc1e862 100644
---- a/dg/include/dg/PointerAnalysis/Pointer.h
-+++ b/dg/include/dg/PointerAnalysis/Pointer.h
-@@ -3,6 +3,7 @@
- 
- #include "dg/Offset.h"
- #include <cassert>
-+#include <cstddef>
- 
- namespace dg {
- namespace pta {

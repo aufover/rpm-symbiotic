@@ -1,9 +1,8 @@
 #!/bin/bash
-
-set -e
+set -euxo pipefail
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-723-g1e1fb34"
+SYMBIOTIC_REV="svcomp19-731-g66916f6"
 
 rm -rf srpm
 mkdir srpm
@@ -12,37 +11,8 @@ cd srpm
 # clone symbiotic git repo, including its submodules
 git clone --recurse-submodules --shallow-submodules https://github.com/staticafi/symbiotic.git
 
-pushd symbiotic > /dev/null
-
 # checkout the specified upstream revision
-git checkout --recurse-submodules "$SYMBIOTIC_REV"
-
-# generate version files and variables in advance
-SYMBIOTIC_VERSION=$(git rev-parse HEAD)
-
-pushd dg > /dev/null
-  DG_VERSION=$(git rev-parse HEAD)
-  cd tools
-  ./git-version.sh
-popd > /dev/null
-
-pushd sbt-slicer > /dev/null
-  SBT_SLICER_VERSION=$(git rev-parse HEAD)
-  cd src
-  ./git-version.sh
-popd > /dev/null
-
-pushd sbt-instrumentation > /dev/null
-  INSTRUMENTATION_VERSION=$(git rev-parse HEAD)
-  cd include
-  . ../git-version.sh
-popd > /dev/null
-
-pushd klee > /dev/null
-  KLEE_VERSION=$(git rev-parse HEAD)
-popd > /dev/null
-
-popd > /dev/null # leave the `symbiotic` directory
+git -C symbiotic checkout --recurse-submodules "$SYMBIOTIC_REV"
 
 # package version
 PKG=symbiotic
@@ -51,10 +21,6 @@ NV=$(grep 'VERSION=' symbiotic/lib/symbioticpy/symbiotic/options.py \
 TIMESTAMP=$(git log --pretty="%cd" --date=iso -1 | tr -d ':-' \
             | tr ' ' . | cut -d . -f 1,2)
 VER="$NV.$TIMESTAMP"
-
-echo "Making symbiotic-$VER.tar.xz"
-mv symbiotic "symbiotic-$VER"
-tar -Jcf "symbiotic-$VER.tar.xz" "symbiotic-$VER"
 
 cat > $PKG.spec << EOF
 Name:       $PKG
@@ -71,6 +37,7 @@ Source2:    csexec-symbiotic.sh
 Patch0:     build.patch
 Patch1:     hotfix.patch
 Patch2:     llvm-dynamic-link.patch
+
 %if 0%{?fedora} > 32
 Patch3:     llvm-11.patch
 %endif
@@ -79,7 +46,13 @@ Patch3:     llvm-11.patch
 Patch4:     llvm-12.patch
 %endif
 
+BuildRequires: gcc
 BuildRequires: gcc-c++
+
+# a bit hacky, but we tar the whole repository structure, so we can use git
+# to generate all version tags during the build
+BuildRequires: git
+
 BuildRequires: clang
 BuildRequires: cmake
 BuildRequires: glibc-devel
@@ -98,18 +71,14 @@ Requires: llvm
 Requires: python3
 
 %description
-Symbiotic is a tool for analysis of sequential computer programs written in the programming language C. It can check all common safety properties like assertion violations, invalid pointer dereference, double free, memory leaks, etc.
+Symbiotic is a tool for analysis of sequential computer programs written in the
+programming language C. It can check all common safety properties like assertion
+violations, invalid pointer dereference, double free, memory leaks, etc.
 
 %prep
 %autosetup -p1
 
 %build
-export SYMBIOTIC_VERSION=$SYMBIOTIC_VERSION
-export DG_VERSION=$DG_VERSION
-export SBT_SLICER_VERSION=$SBT_SLICER_VERSION
-export INSTRUMENTATION_VERSION=$INSTRUMENTATION_VERSION
-export KLEE_VERSION=$KLEE_VERSION
-
 %set_build_flags
 ./system-build.sh %{?_smp_mflags}
 
@@ -128,6 +97,10 @@ ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}%{_bindir}/symbiotic
 %{_bindir}/symbiotic2cs
 %{_bindir}/csexec-symbiotic
 EOF
+
+echo "Making $PKG-$VER.tar.xz"
+mv symbiotic "$PKG-$VER"
+tar -Jcf "$PKG-$VER.tar.xz" "$PKG-$VER"
 
 cp ../{symbiotic2cs.py,csexec-symbiotic.sh,{build,hotfix,llvm-*}.patch} .
 

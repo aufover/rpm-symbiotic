@@ -16,72 +16,6 @@
  
  GET="curl -LRO"
 
-# Versions are parsed in advance during SRPM creation
---- a/scripts/gen-version.sh
-+++ b/scripts/gen-version.sh
-@@ -1,22 +1,22 @@
- #!/bin/bash
- 
- pushd transforms/build-${LLVM_VERSION} || exit 1
--SYMBIOTIC_VERSION=`git rev-parse HEAD`
-+# SYMBIOTIC_VERSION=`git rev-parse HEAD`
- SYMBIOTIC_BUILD_TYPE=$(grep 'CMAKE_BUILD_TYPE' CMakeCache.txt | sed 's@.*=\(.*\)@\1@')
- popd
- 
- pushd dg/build-${LLVM_VERSION} || exit 1
--DG_VERSION=`git rev-parse HEAD`
-+# DG_VERSION=`git rev-parse HEAD`
- DG_BUILD_TYPE=$(grep 'CMAKE_BUILD_TYPE' CMakeCache.txt | sed 's@.*=\(.*\)@\1@')
- popd
- 
- pushd sbt-slicer/build-${LLVM_VERSION} || exit 1
--SBT_SLICER_VERSION=`git rev-parse HEAD`
-+# SBT_SLICER_VERSION=`git rev-parse HEAD`
- SBT_SLICER_BUILD_TYPE=$(grep 'CMAKE_BUILD_TYPE' CMakeCache.txt | sed 's@.*=\(.*\)@\1@')
- popd
- 
- pushd sbt-instrumentation/build-${LLVM_VERSION} || exit 1
--INSTRUMENTATION_VERSION=`git rev-parse HEAD`
-+# INSTRUMENTATION_VERSION=`git rev-parse HEAD`
- INSTRUMENTATION_BUILD_TYPE=$(grep 'CMAKE_BUILD_TYPE' CMakeCache.txt | sed 's@.*=\(.*\)@\1@')
- popd
-
-@@ -38,7 +38,7 @@ fi
- 
- if [ "$BUILD_KLEE" = "yes" ]; then
- 	pushd klee/build-${LLVM_VERSION} || exit 1
--	KLEE_VERSION=`git rev-parse HEAD`
-+	#KLEE_VERSION=`git rev-parse HEAD`
- 	KLEE_BUILD_TYPE=$(grep 'CMAKE_BUILD_TYPE' CMakeCache.txt | sed 's@.*=\(.*\)@\1@')
- 	KLEE_RUNTIME_BUILD_TYPE=$(grep '^KLEE_RUNTIME_BUILD_TYPE[^-]' CMakeCache.txt | sed 's@.*=\(.*\)@\1@')
- 	popd
---- a/sbt-instrumentation/src/CMakeLists.txt
-+++ b/sbt-instrumentation/src/CMakeLists.txt
-@@ -1,10 +1,3 @@
--# generate a git-version.h with a HEAD commit hash tag
--# (if it changed)
--add_custom_target(
--	gitversion ALL sh ${CMAKE_CURRENT_SOURCE_DIR}/../git-version.sh
--)
--include_directories(${CMAKE_CURRENT_BINARY_DIR})
--
- add_executable(sbt-instr
- 	rewriter.cpp
- 	instr_log.cpp
---- a/sbt-slicer/src/CMakeLists.txt
-+++ b/sbt-slicer/src/CMakeLists.txt
-@@ -1,10 +1,3 @@
--# generate a git-version.h with a HEAD commit hash tag
--# (if it changed)
--add_custom_target(
--	gitversion ALL sh ${CMAKE_CURRENT_SOURCE_DIR}/git-version.sh
--)
--include_directories(${CMAKE_CURRENT_BINARY_DIR})
--
- add_executable(sbt-slicer sbt-slicer.cpp)
- target_link_libraries(sbt-slicer ${dg_libs} ${llvm_libs})
- add_dependencies(sbt-slicer gitversion)
-
 # End the build script before the `strip` phase, because everything from this
 # point can handle `rpmbuild` on its own.
 --- a/scripts/push-to-git.sh
@@ -153,7 +87,3 @@ index a3df8ba..700e0de 100644
  endif()
  
  option(LLVM_LINK_DYLIB "Link with LLVM dynamically" ON)
-diff --git a/scripts/gen-version.sh b/scripts/gen-version.sh
-index 3832c37..401fde6 100644
---- a/scripts/gen-version.sh
-+++ b/scripts/gen-version.sh
