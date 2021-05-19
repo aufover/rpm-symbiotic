@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-735-g12f860c"
+SYMBIOTIC_REV="svcomp19-736-g653f9b8"
 
 rm -rf srpm
 mkdir srpm
@@ -40,10 +40,6 @@ Patch2:     llvm-dynamic-link.patch
 
 %if 0%{?fedora} > 32
 Patch3:     llvm-11.patch
-%endif
-
-%if 0%{?fedora} > 33
-Patch4:     llvm-12.patch
 %endif
 
 BuildRequires: gcc
