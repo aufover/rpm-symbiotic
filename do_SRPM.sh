@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 # upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-741-g94e53f0"
+SYMBIOTIC_REV="svcomp19-747-g9658d02"
 
 rm -rf srpm
 mkdir srpm
