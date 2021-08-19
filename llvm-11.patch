@@ -316,15 +316,6 @@ index 48575c82..eda913f7 100644
  }
  
  class DebugInfoExtractor {
-@@ -159,7 +159,7 @@ public:
-         }
-       }
-       return std::unique_ptr<InstructionInfo>(new InstructionInfo(
--          0, getInternedString(full_path), line, column, asmLine));
-+          0, getInternedString(full_path.str()), line, column, asmLine));
-     }
- 
-     if (f != nullptr)
 diff --git a/klee/lib/Module/ModuleUtil.cpp b/klee/lib/Module/ModuleUtil.cpp
 index 6adaee6d..132880d4 100644
 --- a/klee/lib/Module/ModuleUtil.cpp

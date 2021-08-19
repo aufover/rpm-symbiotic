@@ -65,3 +65,19 @@ index c662433..e84e123 100755
  	done
  done
 
+# Print absolute paths in output.
+diff --git a/klee/lib/Module/InstructionInfoTable.cpp b/klee/lib/Module/InstructionInfoTable.cpp
+index 48575c82..091359e6 100644
+--- a/klee/lib/Module/InstructionInfoTable.cpp
++++ b/klee/lib/Module/InstructionInfoTable.cpp
+@@ -144,8 +144,9 @@ public:
+     auto dl = Inst.getDebugLoc();
+ 
+     // Check if a valid debug location is assigned to the instruction.
++    auto* deb_loc = dl.get();
+     if (dl.get() != nullptr) {
+-      auto full_path = dl.get()->getFilename();
++      auto full_path = getFullPath(deb_loc->getDirectory(), deb_loc->getFilename());
+       auto line = dl.getLine();
+       auto column = dl.getCol();
+ 
