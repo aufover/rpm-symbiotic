@@ -37,10 +37,8 @@ Source2:    csexec-symbiotic.sh
 Patch0:     build.patch
 Patch1:     hotfix.patch
 Patch2:     llvm-dynamic-link.patch
-
-%if 0%{?fedora} > 32
 Patch3:     llvm-11.patch
-%endif
+Patch4:     llvm-13.patch
 
 BuildRequires: gcc
 BuildRequires: gcc-c++

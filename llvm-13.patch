@@ -1,0 +1,561 @@
+From c3e0f2480dcd5be544dea42ad1f383ca80b833d3 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 13:59:21 +0200
+Subject: [PATCH 1/6] Support/FileHandling.cpp: rewrite to C++14
+
+---
+ klee/lib/Support/FileHandling.cpp | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/klee/lib/Support/FileHandling.cpp b/klee/lib/Support/FileHandling.cpp
+index af532a0..5318270 100644
+--- a/klee/lib/Support/FileHandling.cpp
++++ b/klee/lib/Support/FileHandling.cpp
+@@ -22,10 +22,9 @@ namespace klee {
+ 
+ std::unique_ptr<llvm::raw_fd_ostream>
+ klee_open_output_file(const std::string &path, std::string &error) {
+-  error = "";
+-  std::unique_ptr<llvm::raw_fd_ostream> f;
++  error.clear();
+   std::error_code ec;
+-  f = std::unique_ptr<llvm::raw_fd_ostream>(new llvm::raw_fd_ostream(path.c_str(), ec, llvm::sys::fs::F_None)); // FIXME C++14
++  auto f = std::make_unique<llvm::raw_fd_ostream>(path.c_str(), ec, llvm::sys::fs::F_None);
+   if (ec)
+     error = ec.message();
+   if (!error.empty()) {
+@@ -37,8 +36,8 @@ klee_open_output_file(const std::string &path, std::string &error) {
+ #ifdef HAVE_ZLIB_H
+ std::unique_ptr<llvm::raw_ostream>
+ klee_open_compressed_output_file(const std::string &path, std::string &error) {
+-  error = "";
+-  std::unique_ptr<llvm::raw_ostream> f(new compressed_fd_ostream(path, error));
++  error.clear();
++  auto f = std::make_unique<compressed_fd_ostream>(path, error);
+   if (!error.empty()) {
+     f.reset(nullptr);
+   }
+-- 
+2.31.1
+
+
+From e50fcad5b1323d5af460c9d55db59065d9e2ac16 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 13:59:28 +0200
+Subject: [PATCH 2/6] llvm13: llvm::fs::F_None has been removed
+
+... and should be replaced with llvm::fs::OF_None since LLVM 7.
+
+See: https://reviews.llvm.org/D101506
+     https://github.com/llvm/llvm-project/commit/1f67a3cba9b09636c56e2109d8a35ae96dc15782
+---
+ klee/lib/Support/FileHandling.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/klee/lib/Support/FileHandling.cpp b/klee/lib/Support/FileHandling.cpp
+index 5318270..3a75684 100644
+--- a/klee/lib/Support/FileHandling.cpp
++++ b/klee/lib/Support/FileHandling.cpp
+@@ -24,7 +24,12 @@ std::unique_ptr<llvm::raw_fd_ostream>
+ klee_open_output_file(const std::string &path, std::string &error) {
+   error.clear();
+   std::error_code ec;
++
++#if LLVM_VERSION_CODE >= LLVM_VERSION(7, 0)
++  auto f = std::make_unique<llvm::raw_fd_ostream>(path.c_str(), ec, llvm::sys::fs::OF_None);
++#else
+   auto f = std::make_unique<llvm::raw_fd_ostream>(path.c_str(), ec, llvm::sys::fs::F_None);
++#endif
+   if (ec)
+     error = ec.message();
+   if (!error.empty()) {
+-- 
+2.31.1
+
+
+From 9ee0e3ca9eab65b6f898eb234f48b8c4faabd544 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 13:59:29 +0200
+Subject: [PATCH 3/6] llvm13: llvm::cl::GeneralCategory is no longer a global
+
+Therefore, llvm::cl::getGlobalCategoiry() should be used instead.
+
+See: https://reviews.llvm.org/D105959
+---
+ klee/tools/kleaver/main.cpp | 5 ++++-
+ klee/tools/klee/main.cpp    | 4 ++++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/klee/tools/kleaver/main.cpp b/klee/tools/kleaver/main.cpp
+index 57d384a..3af7b22 100644
+--- a/klee/tools/kleaver/main.cpp
++++ b/klee/tools/kleaver/main.cpp
+@@ -388,8 +388,11 @@ static bool printInputAsSMTklee/libv2(const char *Filename,
+ }
+ 
+ int main(int argc, char **argv) {
+-
++#if LLVM_VERSION_CODE >= LLVM_VERSION(13, 0)
++  KCommandLine::HideOptions(llvm::cl::getGeneralCategory());
++#else
+   KCommandLine::HideOptions(llvm::cl::GeneralCategory);
++#endif
+ 
+   bool success = true;
+ 
+diff --git a/klee/tools/klee/main.cpp b/klee/tools/klee/main.cpp
+index 7e9b837..72e476b 100644
+--- a/klee/tools/klee/main.cpp
++++ b/klee/tools/klee/main.cpp
+@@ -1533,7 +1533,11 @@ loadBitcode(const std::string& inputFile,
+ int main(int argc, char **argv, char **envp) {
+   atexit(llvm_shutdown);  // Call llvm_shutdown() on exit.
+ 
++#if LLVM_VERSION_CODE >= LLVM_VERSION(13, 0)
++  KCommandLine::HideOptions(llvm::cl::getGeneralCategory());
++#else
+   KCommandLine::HideOptions(llvm::cl::GeneralCategory);
++#endif
+ 
+   llvm::InitializeNativeTarget();
+ 
+-- 
+2.31.1
+
+
+From d275546e491b6dd1a032ad773a8343ac983ff0f3 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 13:59:31 +0200
+Subject: [PATCH 4/6] llvm13: CreateLoad API with implicit types has been
+ deprecated
+
+See: https://github.com/llvm/llvm-project/commit/6312c53870897435b38881795460ad9f34bf9819
+---
+ klee/lib/Core/ExternalDispatcher.cpp |  4 ++--
+ klee/lib/Module/IntrinsicCleaner.cpp | 11 +++++++----
+ 2 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/klee/lib/Core/ExternalDispatcher.cpp b/klee/lib/Core/ExternalDispatcher.cpp
+index dc1fb0a..34e83b1 100644
+--- a/klee/lib/Core/ExternalDispatcher.cpp
++++ b/klee/lib/Core/ExternalDispatcher.cpp
+@@ -277,7 +277,7 @@ Function *ExternalDispatcherImpl::createDispatcher(Function *target,
+       ConstantInt::get(Type::getInt64Ty(ctx), (uintptr_t)(void *)&gTheArgsP),
+       PointerType::getUnqual(PointerType::getUnqual(Type::getInt64Ty(ctx))),
+       "argsp");
+-  auto argI64s = Builder.CreateLoad(argI64sp, "args");
++  auto argI64s = Builder.CreateLoad(argI64sp->getType()->getPointerElementType(), argI64sp, "args");
+ 
+   // Get the target function type.
+   FunctionType *FTy = cast<FunctionType>(
+@@ -296,7 +296,7 @@ Function *ExternalDispatcherImpl::createDispatcher(Function *target,
+                           ConstantInt::get(Type::getInt32Ty(ctx), idx));
+ 
+     auto argp = Builder.CreateBitCast(argI64p, PointerType::getUnqual(argTy));
+-    args[i] = Builder.CreateLoad(argp);
++    args[i] = Builder.CreateLoad(argp->getType()->getPointerElementType(), argp, "");
+ 
+     unsigned argSize = argTy->getPrimitiveSizeInBits();
+     idx += ((!!argSize ? argSize : 64) + 63) / 64;
+diff --git a/klee/lib/Module/IntrinsicCleaner.cpp b/klee/lib/Module/IntrinsicCleaner.cpp
+index 7fe3359..b91d277 100644
+--- a/klee/lib/Module/IntrinsicCleaner.cpp
++++ b/klee/lib/Module/IntrinsicCleaner.cpp
+@@ -82,24 +82,27 @@ bool IntrinsicCleanerPass::runOnBasicBlock(BasicBlock &b, Module &M) {
+               Builder.CreatePointerCast(dst, i8pp, "vacopy.cast.dst");
+           auto castedSrc =
+               Builder.CreatePointerCast(src, i8pp, "vacopy.cast.src");
+-          auto load = Builder.CreateLoad(castedSrc, "vacopy.read");
++          auto load = Builder.CreateLoad(castedSrc->getType()->getPointerElementType(), castedSrc, "vacopy.read");
+           Builder.CreateStore(load, castedDst, false /* isVolatile */);
+         } else {
+           assert(WordSize == 8 && "Invalid word size!");
+           Type *i64p = PointerType::getUnqual(Type::getInt64Ty(ctx));
+           auto pDst = Builder.CreatePointerCast(dst, i64p, "vacopy.cast.dst");
+           auto pSrc = Builder.CreatePointerCast(src, i64p, "vacopy.cast.src");
+-          auto val = Builder.CreateLoad(pSrc, std::string());
++
++	  auto pType = pSrc->getType()->getPointerElementType();
++
++          auto val = Builder.CreateLoad(pType, pSrc, "");
+           Builder.CreateStore(val, pDst, ii);
+ 
+           auto off = ConstantInt::get(Type::getInt64Ty(ctx), 1);
+           pDst = Builder.CreateGEP(nullptr, pDst, off, std::string());
+           pSrc = Builder.CreateGEP(nullptr, pSrc, off, std::string());
+-          val = Builder.CreateLoad(pSrc, std::string());
++          val = Builder.CreateLoad(pType, pSrc, "");
+           Builder.CreateStore(val, pDst);
+           pDst = Builder.CreateGEP(nullptr, pDst, off, std::string());
+           pSrc = Builder.CreateGEP(nullptr, pSrc, off, std::string());
+-          val = Builder.CreateLoad(pSrc, std::string());
++          val = Builder.CreateLoad(pType, pSrc, "");
+           Builder.CreateStore(val, pDst);
+         }
+         ii->eraseFromParent();
+-- 
+2.31.1
+
+
+From cf6de8387db20ec030297a9448d00d6115cc36b7 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 13:59:32 +0200
+Subject: [PATCH 5/6] llvm13: CreateGEP no longer accepts nullptr
+
+See: https://reviews.llvm.org/D105653
+---
+ klee/lib/Core/ExternalDispatcher.cpp |  2 +-
+ klee/lib/Module/IntrinsicCleaner.cpp | 17 +++++++++--------
+ 2 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/klee/lib/Core/ExternalDispatcher.cpp b/klee/lib/Core/ExternalDispatcher.cpp
+index 34e83b1..ae5f268 100644
+--- a/klee/lib/Core/ExternalDispatcher.cpp
++++ b/klee/lib/Core/ExternalDispatcher.cpp
+@@ -292,7 +292,7 @@ Function *ExternalDispatcherImpl::createDispatcher(Function *target,
+     auto argTy =
+         (i < FTy->getNumParams() ? FTy->getParamType(i) : (*ai)->getType());
+     auto argI64p =
+-        Builder.CreateGEP(nullptr, argI64s,
++        Builder.CreateGEP(argI64s->getType()->getPointerElementType(), argI64s,
+                           ConstantInt::get(Type::getInt32Ty(ctx), idx));
+ 
+     auto argp = Builder.CreateBitCast(argI64p, PointerType::getUnqual(argTy));
+diff --git a/klee/lib/Module/IntrinsicCleaner.cpp b/klee/lib/Module/IntrinsicCleaner.cpp
+index b91d277..47827a7 100644
+--- a/klee/lib/Module/IntrinsicCleaner.cpp
++++ b/klee/lib/Module/IntrinsicCleaner.cpp
+@@ -90,19 +90,20 @@ bool IntrinsicCleanerPass::runOnBasicBlock(BasicBlock &b, Module &M) {
+           auto pDst = Builder.CreatePointerCast(dst, i64p, "vacopy.cast.dst");
+           auto pSrc = Builder.CreatePointerCast(src, i64p, "vacopy.cast.src");
+ 
+-	  auto pType = pSrc->getType()->getPointerElementType();
++	  auto pSrcType = pSrc->getType()->getPointerElementType();
++	  auto pDstType = pDst->getType()->getPointerElementType();
+ 
+-          auto val = Builder.CreateLoad(pType, pSrc, "");
++          auto val = Builder.CreateLoad(pSrcType, pSrc, "");
+           Builder.CreateStore(val, pDst, ii);
+ 
+           auto off = ConstantInt::get(Type::getInt64Ty(ctx), 1);
+-          pDst = Builder.CreateGEP(nullptr, pDst, off, std::string());
+-          pSrc = Builder.CreateGEP(nullptr, pSrc, off, std::string());
+-          val = Builder.CreateLoad(pType, pSrc, "");
++          pDst = Builder.CreateGEP(pDstType, pDst, off);
++          pSrc = Builder.CreateGEP(pSrcType, pSrc, off);
++          val = Builder.CreateLoad(pSrcType, pSrc, "");
+           Builder.CreateStore(val, pDst);
+-          pDst = Builder.CreateGEP(nullptr, pDst, off, std::string());
+-          pSrc = Builder.CreateGEP(nullptr, pSrc, off, std::string());
+-          val = Builder.CreateLoad(pType, pSrc, "");
++          pDst = Builder.CreateGEP(pDstType, pDst, off);
++          pSrc = Builder.CreateGEP(pSrcType, pSrc, off);
++          val = Builder.CreateLoad(pSrcType, pSrc, "");
+           Builder.CreateStore(val, pDst);
+         }
+         ii->eraseFromParent();
+-- 
+2.31.1
+
+
+From 634db97407a7ef8841e84d2b94a55b208d3c12af Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 13:59:33 +0200
+Subject: [PATCH 6/6] llvm13: std::string llvm::APInt::toString has been moved
+ to StringExtras.h
+
+See: https://reviews.llvm.org/D103888
+---
+ klee/lib/Expr/Expr.cpp | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/klee/lib/Expr/Expr.cpp b/klee/lib/Expr/Expr.cpp
+index 9aad63d..5b1bb68 100644
+--- a/klee/lib/Expr/Expr.cpp
++++ b/klee/lib/Expr/Expr.cpp
+@@ -17,6 +17,9 @@
+ #include "klee/OptionCategories.h"
+ 
+ #include "llvm/ADT/Hashing.h"
++#if LLVM_VERSION_CODE >= LLVM_VERSION(13, 0)
++#include "llvm/ADT/StringExtras.h"
++#endif
+ #include "llvm/Support/CommandLine.h"
+ #include "llvm/Support/raw_ostream.h"
+ 
+@@ -366,7 +369,11 @@ void ConstantExpr::toMemory(void *address) {
+ }
+ 
+ void ConstantExpr::toString(std::string &Res, unsigned radix) const {
++#if LLVM_VERSION_CODE >= LLVM_VERSION(13, 0)
++  Res = llvm::toString(value, radix, false);
++#else
+   Res = value.toString(radix, false);
++#endif
+ }
+ 
+ ref<ConstantExpr> ConstantExpr::Concat(const ref<ConstantExpr> &RHS) {
+-- 
+2.31.1
+
+From a88060231b3fe7feebb6a1f54a4c7af10c7d84fd Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 16:04:58 +0200
+Subject: [PATCH] llvm13: std::string llvm::APInt::toString has been moved to
+ StringExtras.h
+
+See: https://reviews.llvm.org/D103888
+---
+ klee/include/klee/ConcreteValue.h | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/klee/include/klee/ConcreteValue.h b/klee/include/klee/ConcreteValue.h
+index 967f4af..ba38551 100644
+--- a/klee/include/klee/ConcreteValue.h
++++ b/klee/include/klee/ConcreteValue.h
+@@ -2,6 +2,9 @@
+ #define KLEE_CONCRETE_VALUE_
+ 
+ #include <llvm/ADT/APInt.h>
++#if LLVM_VERSION_CODE >= LLVM_VERSION(13, 0)
++#include "llvm/ADT/StringExtras.h"
++#endif
+ #include <experimental/optional>
+ 
+ namespace klee {
+@@ -39,7 +42,13 @@ public:
+ 
+     unsigned getBitWidth() const { return value.getBitWidth(); }
+     // WARNING: not efficient
+-    std::string toString() const { return value.toString(10, issigned); }
++    std::string toString() const {
++#if LLVM_VERSION_CODE >= LLVM_VERSION(13, 0)
++        return llvm::toString(value, 10, issigned);
++#else
++        return value.toString(10, issigned);
++#endif
++    }
+ 
+     bool isPointer() const { return static_cast<bool>(pointer); }
+     llvm::APInt& getPointer() { return *pointer; }
+-- 
+2.31.1
+
+From a02a538050bce49e6782e1b831783f0a890d11f8 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Thu, 4 Mar 2021 15:02:57 +0100
+Subject: [PATCH] llvm12: VectorType::getNumElements() has been deprecated
+
+... and has already been removed from the LLVM 13 source tree.
+
+See:
+https://reviews.llvm.org/D78127
+https://reviews.llvm.org/D95570
+---
+ lib/Core/Executor.cpp | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/klee/lib/Core/Executor.cpp b/klee/lib/Core/Executor.cpp
+index a81c4882..aaa56a55 100644
+--- a/klee/lib/Core/Executor.cpp
++++ b/klee/lib/Core/Executor.cpp
+@@ -3137,7 +3137,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
+       return;
+     }
+     uint64_t iIdx = cIdx->getZExtValue();
++#if LLVM_VERSION_MAJOR >= 11
++    const auto *vt = cast<llvm::FixedVectorType>(iei->getType());
++#else
+     const llvm::VectorType *vt = iei->getType();
++#endif
+     unsigned EltBits = getWidthForLLVMType(vt->getElementType());
+ 
+     if (iIdx >= vt->getNumElements()) {
+@@ -3175,7 +3179,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
+       return;
+     }
+     uint64_t iIdx = cIdx->getZExtValue();
++#if LLVM_VERSION_MAJOR >= 11
++    const auto *vt = cast<llvm::FixedVectorType>(eei->getVectorOperandType());
++#else
+     const llvm::VectorType *vt = eei->getVectorOperandType();
++#endif
+     unsigned EltBits = getWidthForLLVMType(vt->getElementType());
+ 
+     if (iIdx >= vt->getNumElements()) {
+-- 
+2.31.1
+
+From 59c9afb6cc60d317bb55c557a65e106547f8f3ff Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 16:47:45 +0200
+Subject: [PATCH] llvm13: llvm::fs::F_None has been removed
+
+... and should be replaced with llvm::fs::OF_None since LLVM 7.
+
+See: https://reviews.llvm.org/D101506
+---
+ sbt-instrumentation/analyses/ra/RangeAnalysis.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp b/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
+index 36ddd35..07436a7 100644
+--- a/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
++++ b/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
+@@ -2995,7 +2995,11 @@ void ConstraintGraph::print(const Function& F, raw_ostream& OS) const {
+ 
+ void ConstraintGraph::printToFile(const Function& F, Twine FileName) {
+ 	std::error_code ErrorInfo;
++#if LLVM_VERSION_MAJOR >= 7
++	raw_fd_ostream file(FileName.getSingleStringRef() , ErrorInfo,sys::fs::OF_None);
++#else
+ 	raw_fd_ostream file(FileName.getSingleStringRef() , ErrorInfo,sys::fs::F_None);
++#endif
+ 	if(!file.has_error()){
+ 		print(F, file);
+ 		file.close();
+-- 
+2.31.1
+
+From 96b6991a107fc968edc7e890e33cb3af21e36640 Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Tue, 24 Aug 2021 17:13:07 +0200
+Subject: [PATCH] llvm13: ConstantAggregateZero::getNumElements has been
+ replaced with getElementCount()
+
+See: https://reviews.llvm.org/D102082
+---
+ parser/constval.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/llvm2c/parser/constval.cpp b/llvm2c/parser/constval.cpp
+index 83345f5..d949b83 100644
+--- a/llvm2c/parser/constval.cpp
++++ b/llvm2c/parser/constval.cpp
+@@ -117,8 +117,13 @@ Expr* createConstantValue(const llvm::Value* val, Program& program) {
+ 
+     if (const auto* CAZ = llvm::dyn_cast_or_null<llvm::ConstantAggregateZero>(val)) {
+         std::vector<Expr*> values;
++#if LLVM_VERSION_MAJOR >= 13
++        unsigned count = CAZ->getElementCount().getFixedValue();
++#else
++        unsigned count = CAZ->getNumElements();
++#endif
+ 
+-        for (int i = 0; i < CAZ->getNumElements(); ++i) {
++        for (int i = 0; i < count; ++i) {
+             auto* elem = CAZ->getElementValue(i);
+             values.push_back(createConstantValue(elem, program));
+         }
+-- 
+2.31.1
+
+From c0a1b046d4509e46f98861ecc1cbdec95787ac1e Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Wed, 25 Aug 2021 11:47:13 +0200
+Subject: [PATCH 1/2] llvm13: disable new pass manager for now
+
+---
+ lib/symbioticpy/symbiotic/transform.py | 11 +++++++++++
+ lib/symbioticpy/symbiotic/verifier.py  | 13 -------------
+ 2 files changed, 11 insertions(+), 13 deletions(-)
+
+diff --git a/lib/symbioticpy/symbiotic/transform.py b/lib/symbioticpy/symbiotic/transform.py
+index 0e6e1e1..4712814 100644
+--- a/lib/symbioticpy/symbiotic/transform.py
++++ b/lib/symbioticpy/symbiotic/transform.py
+@@ -246,17 +246,27 @@ class SymbioticCC(object):
+         output = '{0}-pr.bc'.format(self.curfile[:self.curfile.rfind('.')])
+         cmd = ['opt', '-load', 'LLVMsbt.so',
+                self.curfile, '-o', output] + passes
++        self._disable_new_pm(cmd)
+ 
+         runcmd(cmd, PrepareWatch(), 'Running opt failed')
+         self.curfile = output
+         self._save_ll()
+ 
++    def _disable_new_pm(self, cmd):
++        # disable new pass manager in LLVM 13+
++        # TODO: support natively
++        ver_major, *_ = self._tool.llvm_version().split('.')
++        if int(ver_major) >= 13:
++            cmd.append('-enable-new-pm=0')
++
+     def _get_stats(self, prefix=''):
+         if not self.options.stats:
+             return
+ 
+         cmd = ['opt', '-load', 'LLVMsbt.so', '-count-instr',
+                '-o', '/dev/null', self.curfile]
++        self._disable_new_pm(cmd)
++
+         try:
+             runcmd(cmd, PrintWatch('INFO: ' + prefix), 'Failed running opt')
+         except SymbioticException:
+@@ -543,6 +553,7 @@ class SymbioticCC(object):
+         cmd = ['opt']
+         if load_sbt:
+             cmd += ['-load', 'LLVMsbt.so']
++        self._disable_new_pm(cmd)
+         cmd += ['-o', output, self.curfile]
+         cmd += passes
+ 
+diff --git a/lib/symbioticpy/symbiotic/verifier.py b/lib/symbioticpy/symbiotic/verifier.py
+index 298bf3f..9180f2d 100644
+--- a/lib/symbioticpy/symbiotic/verifier.py
++++ b/lib/symbioticpy/symbiotic/verifier.py
+@@ -59,15 +59,6 @@ class SymbioticVerifier(object):
+         return runcmd(cmd, DbgWatch('all'),
+                       "Failed running command: {0}".format(" ".join(cmd)))
+ 
+-    #FIXME: copied from opt, do not duplicate the code
+-    def _run_opt(self, passes):
+-        output = '{0}-pr.bc'.format(self.curfile[:self.curfile.rfind('.')])
+-        cmd = ['opt', '-load', 'LLVMsbt.so',
+-               self.curfile, '-o', output] + passes
+-
+-        runcmd(cmd, DbgWatch('all'), 'Running opt failed')
+-        self.curfile = output
+-
+     def _run_tool(self, tool, prp, params, timeout):
+         cmd = []
+         if timeout:
+@@ -91,10 +82,6 @@ class SymbioticVerifier(object):
+         return res
+ 
+     def _run_verifier(self, tool, addparams, timeout):
+-        # prepare the bitcode
+-        if hasattr(tool, 'passes_before_verification'):
+-            self._run_opt(tool.passes_before_verification())
+-
+         params = self.override_params or self.options.tool_params
+         if addparams:
+             params = params + addparams
+-- 
+2.31.1
+
+From 4faeebb866273378df2c5a3def0cbdd53564b98b Mon Sep 17 00:00:00 2001
+From: Lukas Zaoral <lzaoral@redhat.com>
+Date: Wed, 25 Aug 2021 11:47:38 +0200
+Subject: [PATCH 2/2] llvm13: llvm-nm longopts must be prefixed with '--'
+
+---
+ lib/symbioticpy/symbiotic/transform.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/symbioticpy/symbiotic/transform.py b/lib/symbioticpy/symbiotic/transform.py
+index 4712814..f7da28f 100644
+--- a/lib/symbioticpy/symbiotic/transform.py
++++ b/lib/symbioticpy/symbiotic/transform.py
+@@ -450,7 +450,7 @@ class SymbioticCC(object):
+         return self._link_undefined(self.options.link_files)
+ 
+     def _get_undefined(self, bitcode, only_func=[]):
+-        cmd = ['llvm-nm', '-undefined-only', '-just-symbol-name', bitcode]
++        cmd = ['llvm-nm', '--undefined-only', '--just-symbol-name', bitcode]
+         watch = ProcessWatch(None)
+         runcmd(cmd, watch, 'Failed getting undefined symbols from bitcode')
+         undefs = list(map(lambda s: s.strip().decode('ascii'), watch.getLines()))
+-- 
+2.31.1
+
