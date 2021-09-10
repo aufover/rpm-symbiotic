@@ -2,97 +2,134 @@
 import sys
 import re
 
-def parse_input(str):
-    state = "start"
+class Error_trace:
+    def __init__(self):
+        self.file = "<Unknown>"
+        self.line = "<Unknown>"
+        self.summary = "<Unknown>"
+        self.stack = ""
+        self.info = ""
+        self.nondet_values = ""
 
-    file = ""
-    line = ""
-    description = ""
-    stack = ""
-    info = ""
+    def fix_file(self):
+        'Check whether the file is a file from the input package or file from some symbiotic library. If is the laterthis function tries to find a proper file name/line number from the stackinfo'
+        'TODO'
 
-    cc_info = ""
+    def __str__(self):
+        header = ("Error: SYMBIOTIC_WARNING:\n")
+        summary = self.file + ":" + self.line + ": " + self.summary +"\n"
+        self.fix_file()
+        new_stack = ""
+        for l in str.splitlines(self.stack):
+            new_stack += self.file + ":" + self.line + ": " + l + "\n"
+        return header + summary + new_stack
 
-#7.0.0-dev-llvm-9.0.1-symbiotic:c7cabf85-dg:8fd21926-sbt-slicer:ce747eca-sbt-instrumentation:ff5d8b3f-klee:e773a1f8
-#cc: /tmp/foo.c:3:31: error: expected ';' at end of declaration
+class Parser:
+    'state transitions:'
+    'start -> error_trace'
+    'error_trace -> start | stack | info | nondet_values'
+    'stack -> start | info | nondet_values'
+    'info -> start | stack | nondet_values'
+    'nondet_values -> start | stack | info '
+    'trap is currently unused, but is supposed to be used in a case of malformated input'
+    'error_trace -> start transition also prints the current error_trace to the output'
+    'start -> error_trace transitions initializes the current error_trace'
 
-#RESULT: ERROR (Compiling source '/tmp/foo.c' failed)
-#ERROR:  == FAILURE ==
-#Compiling source '/tmp/foo.c' failed
+    def __init__(self):
+        'create the states of the FSM'
+        self.state_start = self._create_state_start()
+        self.state_trap = self._create_state_trap()
+        self.state_error_trace = self._create_state_error_trace()
+        'I will assume that the following three states, might appear in any order or any of them might be missing, but they might not appear outside of the error trace'
 
-    #compilation failure
-    e_cc_info_re = re.compile('cc:[ \t](.*)')
-    e_error_compile_re = re.compile('RESULT: ERROR \(Compiling source \'(.*)\' failed\)')
+        self.state_stack = self._create_state_stack()
+        self.state_info = self._create_state_info()
+        self.state_nondet_values = self._create_state_nondet_values()
 
-    e_start_re = re.compile('--- Error trace ---')
-    e_end_re = re.compile('--- ----------- ---')
-    e_file_re = re.compile('File:\s*(\S*)\s*')
-    e_line_re = re.compile('Line:\s*(\S*)\s*')
-    e_desc_re = re.compile('Error:\s*(.*)\s*')
+        'Initialize the generators'
+        self.state_start.send(None)
+        self.state_trap.send(None)
+        self.state_error_trace.send(None)
+        self.state_stack.send(None)
+        self.state_info.send(None)
+        self.state_nondet_values.send(None)
 
-    e_stack_start_re = re.compile('Stack:\s*')
-    e_stack_line_re = re.compile('\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*')
+        self.current_state = self.state_start
 
-    e_info_start_re = re.compile('Info:\s*')
-    e_info_line_re = re.compile('\s+(.*)\s*')
+    def send (self, token):
+        self.current_state.send(token)
 
-    e_unknown_re = re.compile('RESULT: unknown \((.*)\)')
-    e_error_re = re.compile('RESULT: ERROR \((.*)\)')
-    for l in str.splitlines():
-        if (e_cc_info_re.match(l) != None):
-            cc_info += e_cc_info_re.search(l).group(1)+"\n"
-        if (e_error_compile_re.match(l) != None):
-            print ("Error: CLANG_WARNING:")
-            print (cc_info, end='')
-        elif (e_error_re.match(l) != None):
-            print ("Error: SYMBIOTIC_WARNING:")
-            print (file + ":" +line +": error: " + l)
-        #stack state is not part of the elif chain
-        if (state == "stack"):
-            if (e_stack_line_re.match(l) != None):
-               stack += e_stack_line_re.search(l).group(3) + ": note: call stack: " + e_stack_line_re.search(l).group(2) + "\n"
-            #this is the reason for no elif
-            else:
-               state = "error"
-        if (state == "info"):
-            if (e_info_line_re.match(l) != None):
-               info += l + "\n"
-            #this is the reason for no elif
-            else:
-               state = "error"
-        if (state == "start"):
-            if (e_start_re.search(l) != None):
-                state = "error"
-            elif (e_unknown_re.search(l) != None):
-                e = e_unknown_re.search(l).group(1)
-                print ("Error: SYMBIOTIC_WARNING:")
-                print ("<unknonwn>: internal warning: " +e)
-        elif (state == "error"):
-            if (e_end_re.search(l) != None):
-                state = "start"
-                print ("Error: SYMBIOTIC_WARNING:")
-                print (file + ":" +line +": error: " + description)
-                print(stack, end='')
-                #print(info)
+    def _create_state_start(self):
+        while True:
+            token = yield
+            if re.search("--- Error trace ---", token):
+               self.current_trace = Error_trace()
+               self.current_state = self.state_error_trace
 
-                file = ""
-                line = ""
-                description = ""
-                stack = ""
-                info = ""
-            elif (e_info_start_re.search(l) != None):
-                state = "info"
-            elif (e_stack_start_re.search(l) != None):
-                state = "stack"
-            elif (e_file_re.search(l) != None):
-                file = e_file_re.search(l).group(1)
-            elif (e_desc_re.search(l) != None):
-                description = e_desc_re.search(l).group(1)
-            elif (e_line_re.search(l) != None):
-                line = e_line_re.search(l).group(1)
-    return str
+
+    def _create_state_error_trace(self):
+        while True:
+            token = yield
+            if re.search("--- ----------- ---", token):
+               self.current_state = self.state_start
+               print(self.current_trace)
+            elif re.search("Error:\s*(.*)\s*", token):
+                self.current_trace.summary = re.search("Error:\s*(.*)\s*", token)[1]
+            elif re.search("File:\s*(.*)\s*", token):
+                self.current_trace.file = re.search("File:\s*(.*)\s*", token)[1]
+            elif re.search("Line:\s*(.*)\s*", token):
+                self.current_trace.line = re.search("Line:\s*(.*)\s*", token)[1]
+            elif re.search("Stack:\s*",token):
+                self.current_state = self.state_stack
+            elif re.search("Info:\s*",token):
+                self.current_state = self.state_info
+            elif re.search("--- Sequence of non-deterministic values [function:file:line:col] ---",token):
+                self.current_state = self.state_nondet_values
+
+    def _create_state_stack(self):
+        while True:
+            token = yield
+            if re.search("--- ----------- ---", token):
+               self.current_state = self.state_start
+               print(self.current_trace)
+            elif re.search("Info:\s*",token):
+                self.current_state = self.state_info
+            elif re.search("--- Sequence of non-deterministic values [function:file:line:col] ---",token):
+                self.current_state = self.state_nondet_values
+            elif re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token):
+                m = re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token)
+                self.current_trace.stack += "note: call stack: function " + m.group(2) + " at: " + m.group(3) + "\n"
+
+    def _create_state_info(self):
+        while True:
+            token = yield
+            if re.search("--- ----------- ---", token):
+               self.current_state = self.state_start
+               print(self.current_trace)
+            elif re.search("Stack:\s*",token):
+                self.current_state = self.state_stack
+            elif re.search("--- Sequence of non-deterministic values [function:file:line:col] ---",token):
+                self.current_state = self.state_nondet_values
+
+    def _create_state_nondet_values(self):
+        while True:
+            token = yield
+            if re.search("--- ----------- ---", token):
+               self.current_state = self.state_start
+               print(self.current_trace)
+            elif re.search("Stack:\s*",token):
+                self.current_state = self.state_stack
+            elif re.search("Info:\s*",token):
+                self.current_state = self.state_info
+
+    def _create_state_trap(self):
+        while True:
+            token = yield
 
 if __name__ == "__main__":
+    symbiotic_return_value = 0
     input_str = sys.stdin.read()
-    parse_input(input_str)
-    sys.exit(0)
+    parser = Parser()
+    for l in str.splitlines(input_str):
+        parser.send(l)
+    sys.exit(symbiotic_return_value)
