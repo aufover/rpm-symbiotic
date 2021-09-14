@@ -115,6 +115,8 @@ class Parser:
                 self.current_state = self.state_info
             elif re.search("--- Sequence of non-deterministic values \[function:file:line:col\] ---",token):
                 self.current_state = self.state_nondet_values
+            elif re.search("\s*\[DBG\].*",token):
+                'Skip the debug messages'
             elif re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token):
                 m = re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token)
                 self.current_trace.stack += "note: call stack: function " + m.group(2) + " at: " + m.group(3) + "\n"
@@ -129,6 +131,8 @@ class Parser:
                 self.current_state = self.state_stack
             elif re.search("--- Sequence of non-deterministic values \[function:file:line:col\] ---", token):
                 self.current_state = self.state_nondet_values
+            elif re.search("\s*\[DBG\].*",token):
+                'Skip the debug messages'
             elif re.search("\s+(.*)", token):
                 m = re.search("\s+(.*)", token)
                 self.current_trace.info += "note: Additional Info: " + m.group(1) + "\n"
@@ -143,6 +147,8 @@ class Parser:
                 self.current_state = self.state_stack
             elif re.search("Info:\s*",token):
                 self.current_state = self.state_info
+            elif re.search("\s*\[DBG\].*",token):
+                'Skip the debug messages'
             elif re.search("\s*(.*):(.*):(.*):(.*) :=\s*(.*)\s*", token):
                 m = re.search("\s*(.*):(.*):(.*):(.*) :=\s*(.*)\s*", token)
                 '__VERIFIER_nondet_int:test-0002.c:9:9 := len 4 bytes, [4 times 0x0] (i32: 0)'
