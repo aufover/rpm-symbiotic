@@ -10,6 +10,9 @@ class Error_trace:
         self.stack = ""
         self.info = ""
         self.nondet_values = ""
+        self.print_stack = True
+        self.print_info = True
+        self.print_nondet_values = True
 
     def fix_file(self):
         'Check whether the file is a file from the input package or file from some symbiotic library. If is the laterthis function tries to find a proper file name/line number from the stackinfo'
@@ -20,9 +23,18 @@ class Error_trace:
         summary = self.file + ":" + self.line + ": " + self.summary +"\n"
         self.fix_file()
         new_stack = ""
-        for l in str.splitlines(self.stack):
-            new_stack += self.file + ":" + self.line + ": " + l + "\n"
-        return header + summary + new_stack
+        new_info = ""
+        new_nondet_values = ""
+        if self.print_stack:
+            for l in str.splitlines(self.stack):
+                new_stack += self.file + ":" + self.line + ": " + l + "\n"
+        if self.print_info:
+            for l in str.splitlines(self.info):
+                new_info += self.file + ":" + self.line + ": " + l + "\n"
+        if self.print_nondet_values:
+            for l in str.splitlines(self.nondet_values):
+                new_nondet_values += "<Unknown>" + ":" + "<Unknown>" + ": " + l + "\n"
+        return header + summary + new_stack + new_info + new_nondet_values
 
 class Parser:
     'state transitions:'
@@ -83,7 +95,7 @@ class Parser:
                 self.current_state = self.state_stack
             elif re.search("Info:\s*",token):
                 self.current_state = self.state_info
-            elif re.search("--- Sequence of non-deterministic values [function:file:line:col] ---",token):
+            elif re.search("--- Sequence of non-deterministic values \[function:file:line:col\] ---",token):
                 self.current_state = self.state_nondet_values
 
     def _create_state_stack(self):
@@ -94,7 +106,7 @@ class Parser:
                print(self.current_trace)
             elif re.search("Info:\s*",token):
                 self.current_state = self.state_info
-            elif re.search("--- Sequence of non-deterministic values [function:file:line:col] ---",token):
+            elif re.search("--- Sequence of non-deterministic values \[function:file:line:col\] ---",token):
                 self.current_state = self.state_nondet_values
             elif re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token):
                 m = re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token)
@@ -106,10 +118,13 @@ class Parser:
             if re.search("--- ----------- ---", token):
                self.current_state = self.state_start
                print(self.current_trace)
-            elif re.search("Stack:\s*",token):
+            elif re.search("Stack:\s*", token):
                 self.current_state = self.state_stack
-            elif re.search("--- Sequence of non-deterministic values [function:file:line:col] ---",token):
+            elif re.search("--- Sequence of non-deterministic values \[function:file:line:col\] ---", token):
                 self.current_state = self.state_nondet_values
+            elif re.search("\s+(.*)", token):
+                m = re.search("\s+(.*)", token)
+                self.current_trace.info += "note: Additional Info: " + m.group(1) + "\n"
 
     def _create_state_nondet_values(self):
         while True:
@@ -121,6 +136,11 @@ class Parser:
                 self.current_state = self.state_stack
             elif re.search("Info:\s*",token):
                 self.current_state = self.state_info
+            elif re.search("\s*(.*):(.*):(.*):(.*) :=\s*(.*)\s*", token):
+                m = re.search("\s*(.*):(.*):(.*):(.*) :=\s*(.*)\s*", token)
+                '__VERIFIER_nondet_int:test-0002.c:9:9 := len 4 bytes, [4 times 0x0] (i32: 0)'
+                'TODO: map the group(1) to something more user friendly?'
+                self.current_trace.nondet_values += "note: Non-deterministic values: " + m.group(1) + ":" + m.group(2) + ":" + m.group(3) + ":" + m.group(4) + ": " + m.group(5)  + "\n"
 
     def _create_state_trap(self):
         while True:
