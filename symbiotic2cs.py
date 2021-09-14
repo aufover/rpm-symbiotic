@@ -3,13 +3,14 @@ import sys
 import re
 
 class Error_trace:
-    def __init__(self):
+    def __init__(self,argv = ""):
         self.file = "<Unknown>"
         self.line = "<Unknown>"
         self.summary = "<Unknown>"
         self.stack = ""
         self.info = ""
         self.nondet_values = ""
+        self.argv = argv
         self.print_stack = True
         self.print_info = True
         self.print_nondet_values = True
@@ -34,7 +35,11 @@ class Error_trace:
         if self.print_nondet_values:
             for l in str.splitlines(self.nondet_values):
                 new_nondet_values += "<Unknown>" + ":" + "<Unknown>" + ": " + l + "\n"
-        return header + summary + new_stack + new_info + new_nondet_values
+        if self.argv != "" :
+            new_argv = self.file + ":" + self.line + ": note: argv: " + self.argv + "\n"
+        else:
+            new_argv = ""
+        return header + summary + new_argv + new_stack + new_info + new_nondet_values
 
 class Parser:
     'state transitions:'
@@ -48,6 +53,7 @@ class Parser:
     'start -> error_trace transitions initializes the current error_trace'
 
     def __init__(self):
+        self.argv = ""
         'create the states of the FSM'
         self.state_start = self._create_state_start()
         self.state_trap = self._create_state_trap()
@@ -75,9 +81,10 @@ class Parser:
         while True:
             token = yield
             if re.search("--- Error trace ---", token):
-               self.current_trace = Error_trace()
+               self.current_trace = Error_trace(argv = self.argv)
                self.current_state = self.state_error_trace
-
+            elif re.search ("\[DBG\] Argv:\s+(.*)",token):
+                self.argv = re.search ("\[DBG\] Argv:\s+(.*)",token)[1]
 
     def _create_state_error_trace(self):
         while True:
