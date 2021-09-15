@@ -17,12 +17,23 @@ class Error_trace:
 
     def fix_file(self):
         'Check whether the file is a file from the input package or file from some symbiotic library. If is the laterthis function tries to find a proper file name/line number from the stackinfo'
-        'TODO'
+        if self.stack != "":
+            for l in str.splitlines(self.stack):
+                match = re.search("\s*note: call stack: function (.*) at: (.*):([0123456789]*)\s*",l)
+                if match == None:
+                    continue
+                else:
+                    if re.search("/opt/symbiotic", match.group(2)):
+                        continue
+                    else:
+                        self.file = match.group(2)
+                        self.line = match.group(3)
+                        break
 
     def __str__(self):
         header = ("Error: SYMBIOTIC_WARNING:\n")
-        summary = self.file + ":" + self.line + ": " + self.summary +"\n"
         self.fix_file()
+        summary = self.file + ":" + self.line + ": " + self.summary +"\n"
         new_stack = ""
         new_info = ""
         new_nondet_values = ""
