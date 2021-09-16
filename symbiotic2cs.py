@@ -23,6 +23,7 @@ class Error_trace:
                 if match == None:
                     continue
                 else:
+                    'TODO this regexp might need some further tweaking'
                     if re.search("/opt/symbiotic", match.group(2)):
                         continue
                     else:
@@ -33,7 +34,7 @@ class Error_trace:
     def __str__(self):
         header = ("Error: SYMBIOTIC_WARNING:\n")
         self.fix_file()
-        summary = self.file + ":" + self.line + ": " + self.summary +"\n"
+        summary = self.file + ":" + self.line + ": error: " + self.summary +"\n"
         new_stack = ""
         new_info = ""
         new_nondet_values = ""
