@@ -81,3 +81,16 @@ index 48575c82..091359e6 100644
        auto line = dl.getLine();
        auto column = dl.getCol();
  
+diff --git a/klee/lib/Core/Executor.cpp b/klee/lib/Core/Executor.cpp
+index 7995f701..be2d22ed 100644
+--- a/klee/lib/Core/Executor.cpp
++++ b/klee/lib/Core/Executor.cpp
+@@ -4645,7 +4645,7 @@ bool Executor::getSymbolicSolution(const ExecutionState &state,
+     if (it.kinstruction) {
+       auto *info = it.kinstruction->info;
+       if (!info->file.empty()) {
+-          descr += ":" + llvm::sys::path::filename(info->file).str() +
++          descr += ":" + info->file +
+                    ":" + std::to_string(info->line) +
+                    ":" + std::to_string(info->column);
+       }
