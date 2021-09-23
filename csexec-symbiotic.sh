@@ -40,8 +40,8 @@ if [ -z "$LOGDIR" ]; then
 fi
 
 # Run!
-get-bc "${ARGV[0]}" > /dev/null || exit 1
-symbiotic "${SYMBIOTIC[@]}" --argv="'${ARGV[*]}'" "${ARGV[0]}.bc" \
+get-bc -S -o "${ARGV[0]}-$$.bc" "${ARGV[0]}" > /dev/null || exit 1
+symbiotic "${SYMBIOTIC[@]}" --argv="'${ARGV[*]}'" "${ARGV[0]}-$$.bc" \
   2> "$LOGDIR/pid-$$.err" > "$LOGDIR/pid-$$.out"
 
 # Continue
