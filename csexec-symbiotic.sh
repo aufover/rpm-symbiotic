@@ -41,7 +41,7 @@ fi
 
 # Run!
 get-bc -S -o "${ARGV[0]}-$$.bc" "${ARGV[0]}" > /dev/null || exit 1
-symbiotic "${SYMBIOTIC[@]}" --argv="'${ARGV[*]}'" "${ARGV[0]}-$$.bc" \
+symbiotic "${SYMBIOTIC[@]}" --argv="'${ARGV[*]:1}'" "${ARGV[0]}-$$.bc" \
   2> "$LOGDIR/pid-$$.err" > "$LOGDIR/pid-$$.out"
 
 # Continue
