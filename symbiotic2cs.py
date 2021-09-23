@@ -1,9 +1,10 @@
 #!/bin/python3
 import sys
 import re
+import argparse
 
 class Error_trace:
-    def __init__(self,argv = ""):
+    def __init__(self,argv = "", pr_stack = True, pr_info = True, pr_nondet = True):
         self.file = "<Unknown>"
         self.line = "<Unknown>"
         self.summary = "<Unknown>"
@@ -11,9 +12,9 @@ class Error_trace:
         self.info = ""
         self.nondet_values = ""
         self.argv = argv
-        self.print_stack = True
-        self.print_info = True
-        self.print_nondet_values = True
+        self.print_stack = pr_stack
+        self.print_info = pr_info
+        self.print_nondet_values = pr_nondet
 
     def fix_file(self):
         'Check whether the file is a file from the input package or file from some symbiotic library. If is the laterthis function tries to find a proper file name/line number from the stackinfo'
@@ -173,8 +174,22 @@ class Parser:
 
 if __name__ == "__main__":
     symbiotic_return_value = 0
-    input_str = sys.stdin.read()
-    parser = Parser()
-    for l in str.splitlines(input_str):
-        parser.send(l)
+
+    argv_parser = argparse.ArgumentParser(description='Convert the symbiotic output to csgrep format.')
+    argv_parser.add_argument('input_files', metavar='FILE', nargs='*',  help='input file to be converted')
+    args = argv_parser.parse_args()
+
+    #Input is read from the stdin
+    if args.input_files == []:
+        input_str = sys.stdin.read()
+        input_parser = Parser()
+        for l in str.splitlines(input_str):
+            input_parser.send(l)
+    #The input files are part of the argv
+    else:
+        for f in args.input_files:
+            input_str = open(f,"r")
+            input_parser = Parser()
+            for l in input_str:
+                input_parser.send(l)
     sys.exit(symbiotic_return_value)
