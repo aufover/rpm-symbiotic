@@ -36,23 +36,15 @@ class Error_trace:
         header = ("Error: SYMBIOTIC_WARNING:\n")
         self.fix_file()
         summary = self.file + ":" + self.line + ": error: " + self.summary +"\n"
-        new_stack = ""
         new_info = ""
-        new_nondet_values = ""
-        if self.print_stack:
-            for l in str.splitlines(self.stack):
-                new_stack += self.file + ":" + self.line + ": " + l + "\n"
         if self.print_info:
             for l in str.splitlines(self.info):
                 new_info += self.file + ":" + self.line + ": " + l + "\n"
-        if self.print_nondet_values:
-            for l in str.splitlines(self.nondet_values):
-                new_nondet_values += "<Unknown>" + ":" + "<Unknown>" + ": " + l + "\n"
         if self.argv != "" :
             new_argv = self.file + ":" + self.line + ": note: argv: " + self.argv + "\n"
         else:
             new_argv = ""
-        return header + summary + new_argv + new_stack + new_info + new_nondet_values
+        return header + summary + new_argv + self.stack + new_info + self.nondet_values
 
 class Parser:
     'state transitions:'
@@ -135,7 +127,7 @@ class Parser:
                 'Skip the debug messages'
             elif re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token):
                 m = re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token)
-                self.current_trace.stack += "note: call stack: function " + m.group(2) + " at: " + m.group(3) + "\n"
+                self.current_trace.stack += m.group(3) + ": " + "note: call stack: function " + m.group(2) + "\n"
 
     def _create_state_info(self):
         while True:
@@ -151,7 +143,8 @@ class Parser:
                 'Skip the debug messages'
             elif re.search("\s+(.*)", token):
                 m = re.search("\s+(.*)", token)
-                self.current_trace.info += "note: Additional Info: " + m.group(1) + "\n"
+                if not re.search("^\s+$",token):
+                    self.current_trace.info += "note: Additional Info: " + m.group(1) + "\n"
 
     def _create_state_nondet_values(self):
         while True:
@@ -169,7 +162,7 @@ class Parser:
                 m = re.search("\s*(.*):(.*):(.*):(.*) :=\s*(.*)\s*", token)
                 '__VERIFIER_nondet_int:test-0002.c:9:9 := len 4 bytes, [4 times 0x0] (i32: 0)'
                 'TODO: map the group(1) to something more user friendly?'
-                self.current_trace.nondet_values += "note: Non-deterministic values: " + m.group(1) + ":" + m.group(2) + ":" + m.group(3) + ":" + m.group(4) + ": " + m.group(5)  + "\n"
+                self.current_trace.nondet_values += m.group(2) + ":" + m.group(3) + ":" + m.group(4) + ": " + "note: Non-deterministic values: " + m.group(1) + ": " + m.group(5)  + "\n"
 
     def _create_state_trap(self):
         while True:
