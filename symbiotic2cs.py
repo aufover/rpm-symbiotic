@@ -96,6 +96,9 @@ class Parser:
             if re.search("--- Error trace ---", token):
                self.current_trace = Error_trace(argv = self.argv)
                self.current_state = self.state_error_trace
+            elif re.search ("RESULT: (ERROR|error)\s*(.*)",token):
+                m = re.search ("RESULT: (ERROR|error)\s*(.*)",token)
+                print ("Error: SYMBIOTIC_WARNING:\n" + "symbiotic: internal error: " + m.group(2) + "\n" + "note: argv: " + self.argv + "\n")
             elif re.search ("\[DBG\] Argv:\s+(.*)",token):
                 self.argv = re.search ("\[DBG\] Argv:\s+(.*)",token)[1]
 
