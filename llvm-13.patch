@@ -386,80 +386,6 @@ index a81c4882..aaa56a55 100644
 -- 
 2.31.1
 
-From 59c9afb6cc60d317bb55c557a65e106547f8f3ff Mon Sep 17 00:00:00 2001
-From: Lukas Zaoral <lzaoral@redhat.com>
-Date: Tue, 24 Aug 2021 16:47:45 +0200
-Subject: [PATCH] llvm13: llvm::fs::F_None has been removed
-
-... and should be replaced with llvm::fs::OF_None since LLVM 7.
-
-See: https://reviews.llvm.org/D101506
----
- sbt-instrumentation/analyses/ra/RangeAnalysis.cpp | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp b/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
-index 36ddd35..07436a7 100644
---- a/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
-+++ b/sbt-instrumentation/analyses/ra/RangeAnalysis.cpp
-@@ -2995,7 +2995,11 @@ void ConstraintGraph::print(const Function& F, raw_ostream& OS) const {
- 
- void ConstraintGraph::printToFile(const Function& F, Twine FileName) {
- 	std::error_code ErrorInfo;
-+#if LLVM_VERSION_MAJOR >= 7
-+	raw_fd_ostream file(FileName.getSingleStringRef() , ErrorInfo,sys::fs::OF_None);
-+#else
- 	raw_fd_ostream file(FileName.getSingleStringRef() , ErrorInfo,sys::fs::F_None);
-+#endif
- 	if(!file.has_error()){
- 		print(F, file);
- 		file.close();
--- 
-2.31.1
-
-From 96b6991a107fc968edc7e890e33cb3af21e36640 Mon Sep 17 00:00:00 2001
-From: Lukas Zaoral <lzaoral@redhat.com>
-Date: Tue, 24 Aug 2021 17:13:07 +0200
-Subject: [PATCH] llvm13: ConstantAggregateZero::getNumElements has been
- replaced with getElementCount()
-
-See: https://reviews.llvm.org/D102082
----
- parser/constval.cpp | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/llvm2c/parser/constval.cpp b/llvm2c/parser/constval.cpp
-index 83345f5..d949b83 100644
---- a/llvm2c/parser/constval.cpp
-+++ b/llvm2c/parser/constval.cpp
-@@ -117,8 +117,13 @@ Expr* createConstantValue(const llvm::Value* val, Program& program) {
- 
-     if (const auto* CAZ = llvm::dyn_cast_or_null<llvm::ConstantAggregateZero>(val)) {
-         std::vector<Expr*> values;
-+#if LLVM_VERSION_MAJOR >= 13
-+        unsigned count = CAZ->getElementCount().getFixedValue();
-+#else
-+        unsigned count = CAZ->getNumElements();
-+#endif
- 
--        for (int i = 0; i < CAZ->getNumElements(); ++i) {
-+        for (int i = 0; i < count; ++i) {
-             auto* elem = CAZ->getElementValue(i);
-             values.push_back(createConstantValue(elem, program));
-         }
--- 
-2.31.1
-
-From c0a1b046d4509e46f98861ecc1cbdec95787ac1e Mon Sep 17 00:00:00 2001
-From: Lukas Zaoral <lzaoral@redhat.com>
-Date: Wed, 25 Aug 2021 11:47:13 +0200
-Subject: [PATCH 1/2] llvm13: disable new pass manager for now
-
----
- lib/symbioticpy/symbiotic/transform.py | 11 +++++++++++
- lib/symbioticpy/symbiotic/verifier.py  | 13 -------------
- 2 files changed, 11 insertions(+), 13 deletions(-)
-
 diff --git a/lib/symbioticpy/symbiotic/transform.py b/lib/symbioticpy/symbiotic/transform.py
 index 0e6e1e1..4712814 100644
 --- a/lib/symbioticpy/symbiotic/transform.py
@@ -500,40 +426,6 @@ index 0e6e1e1..4712814 100644
          cmd += ['-o', output, self.curfile]
          cmd += passes
  
-diff --git a/lib/symbioticpy/symbiotic/verifier.py b/lib/symbioticpy/symbiotic/verifier.py
-index 298bf3f..9180f2d 100644
---- a/lib/symbioticpy/symbiotic/verifier.py
-+++ b/lib/symbioticpy/symbiotic/verifier.py
-@@ -59,15 +59,6 @@ class SymbioticVerifier(object):
-         return runcmd(cmd, DbgWatch('all'),
-                       "Failed running command: {0}".format(" ".join(cmd)))
- 
--    #FIXME: copied from opt, do not duplicate the code
--    def _run_opt(self, passes):
--        output = '{0}-pr.bc'.format(self.curfile[:self.curfile.rfind('.')])
--        cmd = ['opt', '-load', 'LLVMsbt.so',
--               self.curfile, '-o', output] + passes
--
--        runcmd(cmd, DbgWatch('all'), 'Running opt failed')
--        self.curfile = output
--
-     def _run_tool(self, tool, prp, params, timeout):
-         cmd = []
-         if timeout:
-@@ -91,10 +82,6 @@ class SymbioticVerifier(object):
-         return res
- 
-     def _run_verifier(self, tool, addparams, timeout):
--        # prepare the bitcode
--        if hasattr(tool, 'passes_before_verification'):
--            self._run_opt(tool.passes_before_verification())
--
-         params = self.override_params or self.options.tool_params
-         if addparams:
-             params = params + addparams
--- 
-2.31.1
-
 From 4faeebb866273378df2c5a3def0cbdd53564b98b Mon Sep 17 00:00:00 2001
 From: Lukas Zaoral <lzaoral@redhat.com>
 Date: Wed, 25 Aug 2021 11:47:38 +0200
@@ -559,3 +451,31 @@ index 4712814..f7da28f 100644
 -- 
 2.31.1
 
+diff --git a/transforms/ExplicitConsdes.cpp b/transforms/ExplicitConsdes.cpp
+index 049f873..3fbc14f 100644
+--- a/transforms/ExplicitConsdes.cpp
++++ b/transforms/ExplicitConsdes.cpp
+@@ -1,4 +1,5 @@
+ #include <llvm/IR/Constants.h>
++#include <llvm/IR/Function.h>
+ #include <llvm/IR/InstIterator.h>
+ #include <llvm/Support/Casting.h>
+ 
+@@ -23,7 +24,7 @@ class ExplicitConsdes : public ModulePass {
+    private:
+     struct FunctionEntry {
+         uint32_t priority;
+-        Value *function;
++        Function *function;
+         Value *param;
+     };
+ 
+@@ -64,7 +65,7 @@ class ExplicitConsdes : public ModulePass {
+             entry.priority =
+                 dyn_cast<ConstantInt>(elem->getAggregateElement(0u))
+                     ->getZExtValue();
+-            entry.function = elem->getAggregateElement(1);
++            entry.function = dyn_cast<Function>(elem->getAggregateElement(1));
+             entry.param = elem->getAggregateElement(2);
+             target.push_back(std::move(entry));
+         }
