@@ -39,10 +39,11 @@ if [ -z "$LOGDIR" ]; then
   exit 1
 fi
 
-# Run!
+# Run and convert!
 get-bc -S -o "${ARGV[0]}-$$.bc" "${ARGV[0]}" > /dev/null || exit 1
 symbiotic "${SYMBIOTIC[@]}" --argv="'${ARGV[*]:1}'" "${ARGV[0]}-$$.bc" \
-  2> "$LOGDIR/pid-$$.err" > "$LOGDIR/pid-$$.out"
+  2> "$LOGDIR/pid-$$.err" | /usr/bin/tee "$LOGDIR/pid-$$.out" | \
+  symbiotic2cs > "$LOGDIR/pid-$$.out.conv"
 
 # Continue
 exec $(csexec --print-ld-exec-cmd) "${ARGV[@]}"
