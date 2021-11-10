@@ -18,17 +18,19 @@
 
 # End the build script before the `strip` phase, because everything from this
 # point can handle `rpmbuild` on its own.
+diff --git a/scripts/push-to-git.sh b/scripts/push-to-git.sh
+index 360eec1..11fe5a4 100644
 --- a/scripts/push-to-git.sh
 +++ b/scripts/push-to-git.sh
-@@ -126,6 +126,8 @@ if [ "$BUILD_Z3" = "yes" ]; then
+@@ -131,6 +131,8 @@ if [ "$BUILD_Z3" = "yes" ]; then
  	LIBRARIES="$LIBRARIES $PREFIX/lib/libz3*.so*"
  fi
  
 +exit 0
 +
- #strip binaries, it will save us 500 MB!
- for B in $BINARIES $LIBRARIES; do
- 	echo "Stripping $B"
+ # strip binaries unless we are in a CI job, it will save us 500 MB
+ if [ -z "$CI" ]; then
+ 	for B in $BINARIES $LIBRARIES; do
 
 # Use `jsoncpp` from repos (`jsoncpp-devel`).
 # This also makes the `rsync` dependency redundant.
