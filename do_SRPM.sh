@@ -85,6 +85,10 @@ install -m 755 %{SOURCE1} %{buildroot}%{_bindir}/symbiotic2cs
 install -m 755 %{SOURCE2} %{buildroot}%{_bindir}/csexec-symbiotic
 ln -sf /opt/symbiotic/bin/symbiotic %{buildroot}%{_bindir}/symbiotic
 
+%check
+cd tests
+./run_tests.sh --with-integrity-check
+
 %files
 /opt/%{name}/
 %{_bindir}/%{name}
