@@ -41,7 +41,8 @@ fi
 
 # Run and convert!
 get-bc -S -o "${ARGV[0]}-$$.bc" "${ARGV[0]}" > /dev/null || exit 1
-symbiotic "${SYMBIOTIC[@]}" --argv="'${ARGV[*]:1}'" "${ARGV[0]}-$$.bc" \
+/usr/bin/env -i /usr/bin/bash -lc \
+  "symbiotic \"${SYMBIOTIC[@]}\" --argv=\"'${ARGV[*]:1}'\" \"${ARGV[0]}-$$.bc\"" \
   2> "$LOGDIR/pid-$$.err" | /usr/bin/tee "$LOGDIR/pid-$$.out" | \
   symbiotic2cs > "$LOGDIR/pid-$$.out.conv"
 
