@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 usage() {
-  cat << EOF
+  /usr/bin/cat << EOF
 USAGE: $0 -s SYMBIOTIC_ARGS ARGV
 1) Build the source with gllvm and CFLAGS internally used by Symbiotic and
    LDFLAGS='-Wl,--dynamic-linker=/usr/bin/csexec-loader'.
@@ -40,11 +40,11 @@ if [ -z "$LOGDIR" ]; then
 fi
 
 # Run and convert!
-get-bc -S -o "${ARGV[0]}-$$.bc" "${ARGV[0]}" > /dev/null || exit 1
+/usr/bin/get-bc -S -o "${ARGV[0]}-$$.bc" "${ARGV[0]}" > /dev/null || exit 1
 /usr/bin/env -i /usr/bin/bash -lc \
-  "symbiotic \"${SYMBIOTIC[@]}\" --argv=\"'${ARGV[*]:1}'\" \"${ARGV[0]}-$$.bc\"" \
+  "/usr/bin/symbiotic \"${SYMBIOTIC[@]}\" --argv=\"'${ARGV[*]:1}'\" \"${ARGV[0]}-$$.bc\"" \
   2> "$LOGDIR/pid-$$.err" | /usr/bin/tee "$LOGDIR/pid-$$.out" | \
-  symbiotic2cs > "$LOGDIR/pid-$$.out.conv"
+  /usr/bin/symbiotic2cs > "$LOGDIR/pid-$$.out.conv"
 
 # Continue
-exec $(csexec --print-ld-exec-cmd) "${ARGV[@]}"
+exec $(/usr/bin/csexec --print-ld-exec-cmd) "${ARGV[@]}"
