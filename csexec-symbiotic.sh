@@ -47,4 +47,4 @@ fi
   /usr/bin/symbiotic2cs > "$LOGDIR/pid-$$.out.conv"
 
 # Continue
-exec $(/usr/bin/csexec --print-ld-exec-cmd) "${ARGV[@]}"
+exec $(/usr/bin/csexec --print-ld-exec-cmd ${CSEXEC_ARGV0}) "${ARGV[@]}"
