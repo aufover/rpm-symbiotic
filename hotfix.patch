@@ -94,3 +94,18 @@ index 7995f701..be2d22ed 100644
                     ":" + std::to_string(info->line) +
                     ":" + std::to_string(info->column);
        }
+
+# sbt-instr logger work-around
+diff --git a/sbt-instrumentation/src/instr.cpp b/sbt-instrumentation/src/instr.cpp
+index 8a37ef4..8164cd5 100644
+--- a/sbt-instrumentation/src/instr.cpp
++++ b/sbt-instrumentation/src/instr.cpp
+@@ -49,7 +49,7 @@ struct Statistics {
+     std::map<const std::string, unsigned> suppresed_instr;
+ } statistics;
+ 
+-Logger logger("log.txt");
++Logger logger("/tmp/instr_log.txt");
+ 
+ void usage(char *name) {
+     cerr << "Usage: " << name << " <config.json> <IR to be instrumented> <IR with definitions> <outputFileName> <options>" << endl;
