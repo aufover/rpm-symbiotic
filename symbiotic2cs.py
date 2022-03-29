@@ -5,9 +5,9 @@ import argparse
 
 class Error_trace:
     def __init__(self,argv = "", pr_stack = True, pr_info = True, pr_nondet = True):
-        self.file = "<Unknown>"
-        self.line = "<Unknown>"
-        self.summary = "<Unknown>"
+        self.file = "<unknown>"
+        self.line = "<unknown>"
+        self.summary = "<unknown>"
         self.stack = ""
         self.info = ""
         self.nondet_values = ""
