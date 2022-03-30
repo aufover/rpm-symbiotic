@@ -103,4 +103,5 @@ tar -Jcf "$PKG-$VER.tar.xz" "$PKG-$VER"
 cp ../{symbiotic2cs.py,csexec-symbiotic.sh,{build,hotfix,llvm-*}.patch} .
 
 # Needed to build the SRPM with correct patches included
-mock --buildsrpm --spec "$PKG.spec" --sources "$PWD" -r fedora-rawhide-x86_64
+mock --buildsrpm --spec "$PKG.spec" --sources "$PWD" -r fedora-rawhide-x86_64 \
+     --resultdir "$PWD"
