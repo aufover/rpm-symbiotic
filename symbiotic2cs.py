@@ -159,11 +159,11 @@ class Parser:
                 self.current_state = self.state_info
             elif re.search("\s*\[DBG\].*",token):
                 'Skip the debug messages'
-            elif re.search("\s*(.*):(.*):(.*):(.*) :=\s*(.*)\s*", token):
-                m = re.search("\s*(.*):(.*):(.*):(.*) :=\s*(.*)\s*", token)
+            elif m := re.search("\s*([^:]*):([^:]*):(\d*):(\d*)( \S*)? :=\s*(.*)\s*", token):
                 '__VERIFIER_nondet_int:test-0002.c:9:9 := len 4 bytes, [4 times 0x0] (i32: 0)'
                 'TODO: map the group(1) to something more user friendly?'
-                self.current_trace.nondet_values += os.path.realpath(m.group(2)) + ":" + m.group(3) + ":" + m.group(4) + ": " + "note: Non-deterministic values: " + m.group(1) + ": " + m.group(5)  + "\n"
+                offset=m.group(5) if m.group(5) is not None else ""
+                self.current_trace.nondet_values += os.path.realpath(m.group(2)) + ":" + m.group(3) + ":" + m.group(4) + ": " + "note: Non-deterministic values: " + m.group(1) +  offset + ": " + m.group(6)  + "\n"
 
     def _create_state_trap(self):
         while True:
