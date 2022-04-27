@@ -1,4 +1,5 @@
 #!/bin/python3
+import os
 import sys
 import re
 import argparse
@@ -103,7 +104,7 @@ class Parser:
             elif re.search("Error:\s*(.*)\s*", token):
                 self.current_trace.summary = re.search("Error:\s*(.*)\s*", token)[1]
             elif re.search("File:\s*(.*)\s*", token):
-                self.current_trace.file = re.search("File:\s*(.*)\s*", token)[1]
+                self.current_trace.file = os.path.realpath(re.search("File:\s*(.*)\s*", token)[1])
             elif re.search("Line:\s*(.*)\s*", token):
                 self.current_trace.line = re.search("Line:\s*(.*)\s*", token)[1]
             elif re.search("Stack:\s*",token):
@@ -127,7 +128,7 @@ class Parser:
                 'Skip the debug messages'
             elif re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token):
                 m = re.search("\s+(.*)\s+in\s+(.*)\s+at\s*(.*)\s*", token)
-                self.current_trace.stack += m.group(3) + ": " + "note: call stack: function " + m.group(2) + "\n"
+                self.current_trace.stack += os.path.realpath(m.group(3)) + ": " + "note: call stack: function " + m.group(2) + "\n"
 
     def _create_state_info(self):
         while True:
@@ -162,7 +163,7 @@ class Parser:
                 m = re.search("\s*(.*):(.*):(.*):(.*) :=\s*(.*)\s*", token)
                 '__VERIFIER_nondet_int:test-0002.c:9:9 := len 4 bytes, [4 times 0x0] (i32: 0)'
                 'TODO: map the group(1) to something more user friendly?'
-                self.current_trace.nondet_values += m.group(2) + ":" + m.group(3) + ":" + m.group(4) + ": " + "note: Non-deterministic values: " + m.group(1) + ": " + m.group(5)  + "\n"
+                self.current_trace.nondet_values += os.path.realpath(m.group(2)) + ":" + m.group(3) + ":" + m.group(4) + ": " + "note: Non-deterministic values: " + m.group(1) + ": " + m.group(5)  + "\n"
 
     def _create_state_trap(self):
         while True:
