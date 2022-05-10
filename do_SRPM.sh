@@ -39,6 +39,7 @@ Patch1:     hotfix.patch
 Patch2:     llvm-dynamic-link.patch
 Patch3:     llvm-11.patch
 Patch4:     llvm-13.patch
+Patch5:     llvm-14.patch
 
 BuildRequires: gcc
 BuildRequires: gcc-c++

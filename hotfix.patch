@@ -109,3 +109,60 @@ index 8a37ef4..8164cd5 100644
  
  void usage(char *name) {
      cerr << "Usage: " << name << " <config.json> <IR to be instrumented> <IR with definitions> <outputFileName> <options>" << endl;
+
+# support llvm.fma and llvm.fmuladd instrinsics
+diff --git a/klee/lib/Core/Executor.cpp b/klee/lib/Core/Executor.cpp
+index 1a16d389..18ddfdd6 100644
+--- a/klee/lib/Core/Executor.cpp
++++ b/klee/lib/Core/Executor.cpp
+@@ -1680,5 +1680,37 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
+       break;
+     }
++
++    case Intrinsic::fma:
++    case Intrinsic::fmuladd: {
++      // only fma supports vectors!
++      if (isa<VectorType>(i->getOperand(0)->getType()))
++        return terminateStateOnExecError(
++            state, "llvm.fma with vectors is not supported");
++
++      ref<ConstantExpr> op1 =
++          toConstant(state, eval(ki, 1, state).value, "floating point");
++      ref<ConstantExpr> op2 =
++          toConstant(state, eval(ki, 2, state).value, "floating point");
++      ref<ConstantExpr> op3 =
++          toConstant(state, eval(ki, 3, state).value, "floating point");
++
++      if (!fpWidthToSemantics(op1->getWidth()) ||
++          !fpWidthToSemantics(op2->getWidth()) ||
++          !fpWidthToSemantics(op3->getWidth()))
++        return terminateStateOnExecError(state,
++                                         "Unsupported fmuladd operation");
++
++      // (op1 * op2) + op3
++      APFloat Res(*fpWidthToSemantics(op1->getWidth()), op1->getAPValue());
++      Res.fusedMultiplyAdd(
++          APFloat(*fpWidthToSemantics(op2->getWidth()), op2->getAPValue()),
++          APFloat(*fpWidthToSemantics(op3->getWidth()), op3->getAPValue()),
++          APFloat::rmNearestTiesToEven);
++
++      bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
++      break;
++    }
++
+     // va_arg is handled by caller and intrinsic lowering, see comment for
+     // ExecutionState::varargs
+     case Intrinsic::vastart:  {
+diff --git a/klee/lib/Module/IntrinsicCleaner.cpp b/klee/lib/Module/IntrinsicCleaner.cpp
+index 7836c202..adef513e 100644
+--- a/klee/lib/Module/IntrinsicCleaner.cpp
++++ b/klee/lib/Module/IntrinsicCleaner.cpp
+@@ -66,6 +66,8 @@ b/kleeool IntrinsicCleanerPass::runOnBasicBlock(BasicBlock &b, Module &M) {
+       case Intrinsic::vastart:
+       case Intrinsic::vaend:
+       case Intrinsic::fabs:
++      case Intrinsic::fma:
++      case Intrinsic::fmuladd:
+       case Intrinsic::lifetime_start:
+       case Intrinsic::lifetime_end:
+         break;
