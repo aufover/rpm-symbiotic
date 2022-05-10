@@ -1,15 +1,16 @@
 #!/bin/bash
 set -euxo pipefail
 
-# upstream revision to checkout
-SYMBIOTIC_REV="svcomp19-879-g0534e84"
+# upstream revision to checkout (use `git describe --tags`)
+SYMBIOTIC_REV="v8.0.0-27-g229c22b"
 
 rm -rf srpm
 mkdir srpm
 cd srpm
 
 # clone symbiotic git repo, including its submodules
-git clone --recurse-submodules --shallow-submodules https://github.com/staticafi/symbiotic.git
+git clone --recurse-submodules --shallow-submodules \
+            https://github.com/staticafi/symbiotic.git
 
 # checkout the specified upstream revision
 git -C symbiotic checkout --recurse-submodules "$SYMBIOTIC_REV"
