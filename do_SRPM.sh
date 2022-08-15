@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 # upstream revision to checkout (use `git describe --tags`)
-SYMBIOTIC_REV="v8.0.0-27-g229c22b"
+SYMBIOTIC_REV="v8.0.0-35-g47302a5"
 
 rm -rf srpm
 mkdir srpm
